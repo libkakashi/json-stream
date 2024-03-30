@@ -30,7 +30,8 @@ const stream = res.data;
 stream.on('data', chunk => {
   queue.push(...chunk); // push character by character, very important
 
-  // obj gets name and description properties dynamically populated as more chunks are received. Make sure to keep every property optional since you never know when they'll be populated.
+  // obj gets name and description properties dynamically populated as more chunks are received.
+  // Make sure to keep every property optional since you never know when they'll be populated.
   const obj = await resolveStreamResult<{name?: string; description?: string}>(
     jsonStream
   );
