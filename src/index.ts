@@ -1,4 +1,4 @@
-import Queue from "superqueue";
+import Queue from 'superqueue';
 
 type JSONStreamValue =
   | null
@@ -19,15 +19,15 @@ interface JSONObjectStream {
 
 type JSONArrayStream = Array<JSONStreamResult<JSONStreamValue>>;
 
-const assert = (condition: boolean, message = "Assertion failed") => {
+const assert = (condition: boolean, message = 'Assertion failed') => {
   if (!condition) throw new Error(message);
 };
 
-const assertEq = (a: unknown, b: unknown, message = "Assertion failed") => {
+const assertEq = (a: unknown, b: unknown, message = 'Assertion failed') => {
   if (a !== b) throw new Error(`${message}: '${a}' !== '${b}'`);
 };
 
-const numbers = "0123456789";
+const numbers = '0123456789';
 
 type UpdaterFunction<T> = (oldData: T) => T;
 type DeepUpdaterFunction<T> = (oldData: T) => void;
@@ -35,18 +35,18 @@ type UpdateData<T> = T | UpdaterFunction<T>;
 
 class JsonParser {
   queue: Queue<string>;
-  last = "";
+  last = '';
 
   constructor(queue: Queue<string>) {
     this.queue = queue;
   }
 
   #isWhitespace(char: string): boolean {
-    return char === " " || char === "\n" || char === "\t" || char === "\r";
+    return char === ' ' || char === '\n' || char === '\t' || char === '\r';
   }
 
   async #next(len = 1): Promise<string | undefined> {
-    let str = "";
+    let str = '';
 
     for (let i = 0; i < len; i++) {
       const char = await this.queue.shiftUnsafe();
@@ -59,7 +59,7 @@ class JsonParser {
 
   async #nextNonEof(len?: number): Promise<string> {
     const chunk = await this.#next(len);
-    assert(chunk !== undefined, "Unexpected end of JSON input.");
+    assert(chunk !== undefined, 'Unexpected end of JSON input.');
     return chunk!;
   }
 
@@ -84,21 +84,21 @@ class JsonParser {
     callback: (update: {
       (data: UpdateData<T> | UpdaterFunction<T>, deep?: false): void;
       (data: DeepUpdaterFunction<T>, deep: true): void;
-    }) => Promise<unknown>,
+    }) => Promise<unknown>
   ): JSONStreamResult<T> {
     const update = (
       data: UpdateData<T> | UpdaterFunction<T> | DeepUpdaterFunction<T>,
-      deep = false,
+      deep = false
     ) => {
       if (deep) {
         if (!(data instanceof Function)) {
-          throw new Error("Data must be a function when using deep: true");
+          throw new Error('Data must be a function when using deep: true');
         }
         const newData = data(result.data);
 
         if (newData) {
           throw new Error(
-            "Update data must be undefined when using deep: true",
+            'Update data must be undefined when using deep: true'
           );
         }
         return;
@@ -106,7 +106,7 @@ class JsonParser {
         const newData = data instanceof Function ? data(result.data) : data;
 
         if (!newData) {
-          throw new Error("Update data cannot be undefined");
+          throw new Error('Update data cannot be undefined');
         }
         result.data = newData;
       }
@@ -122,28 +122,28 @@ class JsonParser {
     if (skip) await this.#skipWhiteSpaces();
 
     switch (this.last) {
-      case "{":
+      case '{':
         return this.parseObject();
-      case "[":
+      case '[':
         return this.parseArray();
       case '"':
         return this.parseString();
-      case "t":
+      case 't':
         return this.parseBoolean(true);
-      case "f":
+      case 'f':
         return this.parseBoolean(false);
-      case "n":
+      case 'n':
         return this.parseNull();
-      case "0":
-      case "1":
-      case "2":
-      case "3":
-      case "4":
-      case "5":
-      case "6":
-      case "7":
-      case "8":
-      case "9":
+      case '0':
+      case '1':
+      case '2':
+      case '3':
+      case '4':
+      case '5':
+      case '6':
+      case '7':
+      case '8':
+      case '9':
         return this.parseNumber();
       default:
         throw new Error(`Unexpected token ${this.last} in JSON`);
@@ -151,27 +151,27 @@ class JsonParser {
   }
 
   parseObject() {
-    return this.#wrapResult<JSONObjectStream>({}, async (update) => {
+    return this.#wrapResult<JSONObjectStream>({}, async update => {
       // eslint-disable-next-line no-constant-condition
       while (true) {
         await this.#skipWhiteSpaces();
-        if (this.last === "}") break;
+        if (this.last === '}') break;
 
         const key = this.parseString();
         await key.wait;
 
-        assertEq(await this.#skipWhiteSpaces(), ":");
+        assertEq(await this.#skipWhiteSpaces(), ':');
 
         const val = await this.parseValue();
-        update((data) => void (data[key.data] = val), true);
+        update(data => void (data[key.data] = val), true);
 
         await val.wait;
 
-        if (typeof val!.data !== "number" || this.#isWhitespace(this.last)) {
+        if (typeof val!.data !== 'number' || this.#isWhitespace(this.last)) {
           await this.#skipWhiteSpaces();
         }
-        if (this.last === "}") break;
-        if (this.last !== ",") {
+        if (this.last === '}') break;
+        if (this.last !== ',') {
           throw new Error(`Unexpected token ${this.last} in JSON`);
         }
       }
@@ -179,71 +179,71 @@ class JsonParser {
   }
 
   parseArray() {
-    return this.#wrapResult<JSONArrayStream>([], async (update) => {
+    return this.#wrapResult<JSONArrayStream>([], async update => {
       // eslint-disable-next-line no-constant-condition
       while (true) {
         await this.#skipWhiteSpaces();
-        if (this.last === "]") break;
+        if (this.last === ']') break;
 
         const val = await this.parseValue(false);
-        update((data) => void data.push(val), true);
+        update(data => void data.push(val), true);
 
         await val.wait;
 
-        if (typeof val.data !== "number" || this.#isWhitespace(this.last)) {
+        if (typeof val.data !== 'number' || this.#isWhitespace(this.last)) {
           await this.#skipWhiteSpaces();
         }
-        if (this.last === "]") break;
-        if (this.last !== ",")
+        if (this.last === ']') break;
+        if (this.last !== ',')
           throw new Error(`Unexpected token ${this.last} in JSON`);
       }
     });
   }
 
   parseNumber() {
-    return this.#wrapResult(parseInt(this.last), async (update) => {
+    return this.#wrapResult(parseInt(this.last), async update => {
       for (let char = await this.#next(); ; char = await this.#next()) {
-        if (!char || !(numbers.includes(char) && char !== ".")) {
+        if (!char || !(numbers.includes(char) && char !== '.')) {
           break;
         }
-        update((num) => parseFloat(num.toString() + char));
+        update(num => parseFloat(num.toString() + char));
       }
     });
   }
 
   parseString() {
-    return this.#wrapResult<string>("", async (update) => {
+    return this.#wrapResult<string>('', async update => {
       for (
         let char = await this.#nextNonEof();
         char !== '"';
         char = await this.#nextNonEof()
       ) {
-        if (char !== "\\") {
-          update((str) => str + char);
+        if (char !== '\\') {
+          update(str => str + char);
           continue;
         }
         const nextChar = await this.#nextNonEof();
 
         const escapeSequences: Record<string, string> = {
           '"': '"',
-          "\\": "\\",
-          "/": "/",
-          b: "\b",
-          f: "\f",
-          n: "\n",
-          r: "\r",
-          t: "\t",
+          '\\': '\\',
+          '/': '/',
+          b: '\b',
+          f: '\f',
+          n: '\n',
+          r: '\r',
+          t: '\t',
         };
         if (escapeSequences[nextChar]) {
-          update((str) => str + escapeSequences[nextChar]);
+          update(str => str + escapeSequences[nextChar]);
           continue;
         }
-        if (nextChar === "u") {
+        if (nextChar === 'u') {
           const char = parseInt(await this.#nextNonEof(4), 16);
-          update((str) => str + String.fromCharCode(char));
-        } else if (nextChar === "U") {
+          update(str => str + String.fromCharCode(char));
+        } else if (nextChar === 'U') {
           const char = parseInt(await this.#nextNonEof(8), 16);
-          update((str) => str + String.fromCharCode(char));
+          update(str => str + String.fromCharCode(char));
         }
         throw new Error(`Invalid escape sequence ${nextChar} in JSON`);
       }
@@ -252,20 +252,20 @@ class JsonParser {
 
   parseBoolean(expected: boolean) {
     return this.#wrapResult(expected, () =>
-      this.#expectNext(expected ? "rue" : "alse"),
+      this.#expectNext(expected ? 'rue' : 'alse')
     );
   }
 
   parseNull() {
-    return this.#wrapResult(null, () => this.#expectNext("ull"));
+    return this.#wrapResult(null, () => this.#expectNext('ull'));
   }
 }
 
 const resolveStreamResultSync = <T = unknown>(
-  stream: JSONStreamResult<JSONStreamValue>,
+  stream: JSONStreamResult<JSONStreamValue>
 ): T => {
   switch (typeof stream.data) {
-    case "object":
+    case 'object':
       if (Array.isArray(stream.data)) {
         return stream.data.map(resolveStreamResultSync) as T extends Array<any>
           ? T
@@ -285,7 +285,7 @@ const resolveStreamResultSync = <T = unknown>(
 export const resolveStreamResult = async <T = unknown>(
   stream:
     | JSONStreamResult<JSONStreamValue>
-    | Promise<JSONStreamResult<JSONStreamValue>>,
+    | Promise<JSONStreamResult<JSONStreamValue>>
 ): Promise<T> =>
   resolveStreamResultSync(stream instanceof Promise ? await stream : stream);
 
