@@ -33,12 +33,14 @@ type UpdaterFunction<T> = (oldData: T) => T;
 type DeepUpdaterFunction<T> = (oldData: T) => void;
 type UpdateData<T> = T | UpdaterFunction<T>;
 
-class JsonParser {
+class JsonParser<T> {
   queue: Queue<string>;
   last = '';
+  #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
   constructor(queue: Queue<string>) {
     this.queue = queue;
+    this.#stream = this.parseValue();
   }
 
   #isWhitespace(char: string): boolean {
@@ -84,11 +86,11 @@ class JsonParser {
     callback: (update: {
       (data: UpdateData<T> | UpdaterFunction<T>, deep?: false): void;
       (data: DeepUpdaterFunction<T>, deep: true): void;
-    }) => Promise<unknown>
+    }) => Promise<unknown>,
   ): JSONStreamResult<T> {
     const update = (
       data: UpdateData<T> | UpdaterFunction<T> | DeepUpdaterFunction<T>,
-      deep = false
+      deep = false,
     ) => {
       if (deep) {
         if (!(data instanceof Function)) {
@@ -98,7 +100,7 @@ class JsonParser {
 
         if (newData) {
           throw new Error(
-            'Update data must be undefined when using deep: true'
+            'Update data must be undefined when using deep: true',
           );
         }
         return;
@@ -252,41 +254,36 @@ class JsonParser {
 
   parseBoolean(expected: boolean) {
     return this.#wrapResult(expected, () =>
-      this.#expectNext(expected ? 'rue' : 'alse')
+      this.#expectNext(expected ? 'rue' : 'alse'),
     );
   }
 
   parseNull() {
     return this.#wrapResult(null, () => this.#expectNext('ull'));
   }
-}
 
-const resolveStreamResultSync = <T = unknown>(
-  stream: JSONStreamResult<JSONStreamValue>
-): T => {
-  switch (typeof stream.data) {
-    case 'object':
-      if (Array.isArray(stream.data)) {
-        return stream.data.map(resolveStreamResultSync) as T extends Array<any>
-          ? T
-          : never;
-      } else {
-        const result: any = {};
-        for (const key in stream.data) {
-          result[key] = resolveStreamResultSync(stream.data[key]!);
-        }
-        return result as T;
-      }
-    default:
-      return stream.data as T extends number | string | boolean ? T : never;
+  async resolve(): Promise<T> {
+    return this.#resolve(await this.#stream);
   }
-};
 
-export const resolveStreamResult = async <T = unknown>(
-  stream:
-    | JSONStreamResult<JSONStreamValue>
-    | Promise<JSONStreamResult<JSONStreamValue>>
-): Promise<T> =>
-  resolveStreamResultSync(stream instanceof Promise ? await stream : stream);
+  #resolve = (stream: JSONStreamResult<JSONStreamValue>): T => {
+    switch (typeof stream.data) {
+      case 'object':
+        if (Array.isArray(stream.data)) {
+          return stream.data.map(this.#resolve) as T extends Array<unknown>
+            ? T
+            : never;
+        } else {
+          const result: Record<string, unknown> = {};
+          for (const key in stream.data) {
+            result[key] = this.#resolve(stream.data[key]!);
+          }
+          return result as T;
+        }
+      default:
+        return stream.data as T extends number | string | boolean ? T : never;
+    }
+  };
+}
 
 export default JsonParser;

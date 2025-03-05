@@ -1,48 +1,42 @@
 {
   "name": "json-stream",
   "version": "0.0.0",
-  "main": "build/index.js",
-  "module": "build/index.mjs",
-  "types": "build/index.d.ts",
-  "exports": {
-    ".": {
-      "require": "./build/index.js",
-      "import": "./build/index.mjs",
-      "types": "./build/index.d.ts"
-    }
-  },
-  "description": "",
-  "scripts": {
-    "compile": "tsup src/index.ts --format cjs,esm --dts -d build",
-    "prepack": "npm run compile",
-    "prepare": "npm run compile",
-    "pretest": "npm run compile",
-    "lint": "gts lint",
-    "clean": "gts clean",
-    "fix": "gts fix",
-    "posttest": "npm run lint"
-  },
-  "license": "MIT",
-  "homepage": "https://github.com/libkakashi/json-stream#readme",
+  "author": "Kakashi <chat@libkakashi.dev",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/libkakashi/json-stream.git"
   },
-  "bugs": "https://github.com/libkakashi/json-stream/issues",
-  "author": "Kakashi <chat@libkakashi.dev",
   "devDependencies": {
-    "@types/bun": "^1.0.0",
-    "bun-plugin-dts": "^0.2.1",
-    "tsup": "^8.3.0",
-    "typescript": "^5.2.2",
+    "@types/bun": "^1.2.4",
     "gts": "^6.0.2",
-    "@types/node": "^22.7.5"
+    "tsup": "^8.4.0",
+    "typescript": "^5.8.2"
   },
+  "files": [
+    "./build"
+  ],
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "require": "./build/index.cjs",
+      "import": "./build/index.js"
+    }
+  },
+  "bugs": "https://github.com/libkakashi/json-stream/issues",
+  "description": "",
   "engines": {
     "node": ">=12.9.0"
   },
+  "homepage": "https://github.com/libkakashi/json-stream#readme",
+  "license": "MIT",
+  "scripts": {
+    "compile": "tsup src/index.ts --format cjs,esm --dts -d build",
+    "lint": "gts lint",
+    "clean": "gts clean",
+    "fix": "gts fix"
+  },
+  "type": "module",
   "dependencies": {
-    "gts": "^6.0.2",
     "superqueue": "github:libkakashi/superqueue"
   }
 }
