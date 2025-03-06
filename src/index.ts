@@ -59,25 +59,25 @@ class JsonParser<T> {
     return str;
   }
 
-  async #nextNonEof(len?: number): Promise<string> {
+  async #nextNonEof(len?: number, message?: string): Promise<string> {
     const chunk = await this.#next(len);
-    assert(chunk !== undefined, 'Unexpected end of JSON input.');
+    assert(chunk !== undefined, `Unexpected end of JSON input: ${message}`);
     return chunk!;
   }
 
   async #skipWhiteSpaces(): Promise<string> {
     for (
-      let char = await this.#nextNonEof();
+      let char = await this.#nextNonEof(1, 'skipWhiteSpaces');
       ;
-      char = await this.#nextNonEof()
+      char = await this.#nextNonEof(1, 'skipWhiteSpaces')
     ) {
       if (!this.#isWhitespace(char)) return char;
     }
   }
 
   async #expectNext(expected: string): Promise<string> {
-    const char = await this.#nextNonEof(expected.length);
-    assertEq(char, expected, `Expected '${expected}' got '${char} '`);
+    const char = await this.#nextNonEof(expected.length, `Expected '${expected}', got EOF.`);
+    assertEq(char, expected, `Expected '${expected}' got '${char}'`);
     return char;
   }
 
