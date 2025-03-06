@@ -28,7 +28,7 @@ const res = await axios.get('streaming-json-endpoint', {
 const stream = res.data;
 
 stream.on('data', chunk => {
-  queue.push(...chunk); // push character by character, very important
+  queue.push(chunk);
   // current gets name and description properties dynamically populated as more chunks are received.
   const current = await jsonStream.resolve();
 });

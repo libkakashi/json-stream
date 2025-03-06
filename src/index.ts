@@ -39,7 +39,7 @@ class JsonParser<T> {
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
   constructor(queue: Queue<string>) {
-    this.queue = queue;
+    this.queue = queue.pipe(r => [...r]).flat();
     this.#stream = this.parseValue();
   }
 
