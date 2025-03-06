@@ -34,12 +34,13 @@ type DeepUpdaterFunction<T> = (oldData: T) => void;
 type UpdateData<T> = T | UpdaterFunction<T>;
 
 class JsonParser<T> {
-  queue: Queue<string>;
-  last = '';
+  #queue: Queue<string>;
+  #last = '';
+  #index = 0;
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
   constructor(queue: Queue<string>) {
-    this.queue = queue.pipe(r => [...r]).flat();
+    this.#queue = queue.pipe(r => [...r]).flat();
     this.#stream = this.parseValue();
   }
 
@@ -51,17 +52,18 @@ class JsonParser<T> {
     let str = '';
 
     for (let i = 0; i < len; i++) {
-      const char = await this.queue.shiftUnsafe();
+      const char = await this.#queue.shiftUnsafe();
       if (char === Queue.EOF) return undefined;
       str += char;
     }
-    this.last = str.charAt(str.length - 1);
+    this.#last = str.charAt(len - 1);
+    this.#index += len;
     return str;
   }
 
   async #nextNonEof(len?: number, message?: string): Promise<string> {
     const chunk = await this.#next(len);
-    assert(chunk !== undefined, `Unexpected end of JSON input: ${message}`);
+    assert(chunk !== undefined, `Unexpected end of JSON input at index ${this.#index}: ${message}`);
     return chunk!;
   }
 
@@ -76,8 +78,8 @@ class JsonParser<T> {
   }
 
   async #expectNext(expected: string): Promise<string> {
-    const char = await this.#nextNonEof(expected.length, `Expected '${expected}', got EOF.`);
-    assertEq(char, expected, `Expected '${expected}' got '${char}'`);
+    const char = await this.#nextNonEof(expected.length, `Expected '${expected}' at index ${this.#index}, got EOF.`);
+    assertEq(char, expected, `Expected '${expected}' at index ${this.#index}, got '${char}'`);
     return char;
   }
 
@@ -123,7 +125,7 @@ class JsonParser<T> {
   async parseValue(skip = true) {
     if (skip) await this.#skipWhiteSpaces();
 
-    switch (this.last) {
+    switch (this.#last) {
       case '{':
         return this.parseObject();
       case '[':
@@ -148,7 +150,7 @@ class JsonParser<T> {
       case '9':
         return this.parseNumber();
       default:
-        throw new Error(`Unexpected token ${this.last} in JSON`);
+        throw new Error(`Unexpected token ${this.#last} at index ${this.#index} while parsing value in JSON`);
     }
   }
 
@@ -157,7 +159,7 @@ class JsonParser<T> {
       // eslint-disable-next-line no-constant-condition
       while (true) {
         await this.#skipWhiteSpaces();
-        if (this.last === '}') break;
+        if (this.#last === '}') break;
 
         const key = this.parseString();
         await key.wait;
@@ -169,12 +171,12 @@ class JsonParser<T> {
 
         await val.wait;
 
-        if (typeof val!.data !== 'number' || this.#isWhitespace(this.last)) {
+        if (typeof val!.data !== 'number' || this.#isWhitespace(this.#last)) {
           await this.#skipWhiteSpaces();
         }
-        if (this.last === '}') break;
-        if (this.last !== ',') {
-          throw new Error(`Unexpected token ${this.last} in JSON`);
+        if (this.#last === '}') break;
+        if (this.#last !== ',') {
+          throw new Error(`Unexpected token ${this.#last} at index ${this.#index} while parsing object in JSON`);
         }
       }
     });
@@ -185,25 +187,25 @@ class JsonParser<T> {
       // eslint-disable-next-line no-constant-condition
       while (true) {
         await this.#skipWhiteSpaces();
-        if (this.last === ']') break;
+        if (this.#last === ']') break;
 
         const val = await this.parseValue(false);
         update(data => void data.push(val), true);
 
         await val.wait;
 
-        if (typeof val.data !== 'number' || this.#isWhitespace(this.last)) {
+        if (typeof val.data !== 'number' || this.#isWhitespace(this.#last)) {
           await this.#skipWhiteSpaces();
         }
-        if (this.last === ']') break;
-        if (this.last !== ',')
-          throw new Error(`Unexpected token ${this.last} in JSON`);
+        if (this.#last === ']') break;
+        if (this.#last !== ',')
+          throw new Error(`Unexpected token ${this.#last} at index ${this.#index} while parsing array in JSON`);
       }
     });
   }
 
   parseNumber() {
-    return this.#wrapResult(parseInt(this.last), async update => {
+    return this.#wrapResult(parseInt(this.#last), async update => {
       for (let char = await this.#next(); ; char = await this.#next()) {
         if (!char || !(numbers.includes(char) && char !== '.')) {
           break;
@@ -247,7 +249,7 @@ class JsonParser<T> {
           const char = parseInt(await this.#nextNonEof(8), 16);
           update(str => str + String.fromCharCode(char));
         }
-        throw new Error(`Invalid escape sequence ${nextChar} in JSON`);
+        throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#index} in JSON`);
       }
     });
   }
