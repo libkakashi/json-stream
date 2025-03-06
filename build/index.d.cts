@@ -11,8 +11,6 @@ interface JSONObjectStream {
 type JSONArrayStream = Array<JSONStreamResult<JSONStreamValue>>;
 declare class JsonParser<T> {
     #private;
-    queue: Queue<string>;
-    last: string;
     constructor(queue: Queue<string>);
     parseValue(skip?: boolean): Promise<JSONStreamResult<JSONObjectStream> | JSONStreamResult<JSONArrayStream> | JSONStreamResult<string> | JSONStreamResult<boolean> | JSONStreamResult<null> | JSONStreamResult<number>>;
     parseObject(): JSONStreamResult<JSONObjectStream>;
