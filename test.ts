@@ -56,6 +56,21 @@ const testCases = [
     name: 'Negative numbers',
     input: '{"temp":-15.5,"count":-3}',
     expected: { temp: -15.5, count: -3 }
+  },
+  {
+    name: 'Partial',
+    input: `{
+
+    title:"Introduction to Testing",
+    description:"A
+     comprehensive introduction to testing principles, methodologies, and best
+     practices for beginners. This course covers the fundamentals of testing, different
+     testing types, and basic test case design.",
+    contents:[
+
+      {
+        title:"Testing Fundamentals",`,
+    expected: {title: 'Introduction to Testing', description: 'T'}
   }
 ];
 

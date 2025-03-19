@@ -39,7 +39,11 @@ class JsonParser<T> {
 
   constructor(queue: Queue<string>) {
     this.#queue = queue.pipe(r => [...r]).flat();
-    this.#stream = this.parseValue();
+
+    this.#stream = (async () => {
+      await this.#skipWhiteSpaces();
+      return await this.parseValue()
+    })();
   }
 
   #isWhitespace(char: string): boolean {
@@ -126,8 +130,7 @@ class JsonParser<T> {
     return result;
   }
 
-  async parseValue(skip = true) {
-    if (skip) await this.#skipWhiteSpaces();
+  async parseValue() {
     const next = await this.#peekNonEof();
 
     switch (next) {
@@ -174,6 +177,7 @@ class JsonParser<T> {
 
         await this.#skipWhiteSpaces();
         await this.#expectNext(':');
+        await this.#skipWhiteSpaces();
 
         const val = await this.parseValue();
         update(data => void (data[key.data] = val), true);
@@ -198,7 +202,7 @@ class JsonParser<T> {
         await this.#skipWhiteSpaces();
         if (await this.#peekNonEof() === ']') break;
 
-        const val = await this.parseValue(false);
+        const val = await this.parseValue();
         update(data => void data.push(val), true);
 
         await val.wait;
