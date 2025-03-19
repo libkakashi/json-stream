@@ -31,6 +31,8 @@ type UpdaterFunction<T> = (oldData: T) => T;
 type DeepUpdaterFunction<T> = (oldData: T) => void;
 type UpdateData<T> = T | UpdaterFunction<T>;
 
+console.log('v2');
+
 class JsonParser<T> {
   #queue: Queue<string>;
   #text = '';
