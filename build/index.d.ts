@@ -12,7 +12,7 @@ type JSONArrayStream = Array<JSONStreamResult<JSONStreamValue>>;
 declare class JsonParser<T> {
     #private;
     constructor(queue: Queue<string>);
-    parseValue(skip?: boolean): Promise<JSONStreamResult<JSONObjectStream> | JSONStreamResult<JSONArrayStream> | JSONStreamResult<string> | JSONStreamResult<boolean> | JSONStreamResult<null> | JSONStreamResult<number>>;
+    parseValue(): Promise<JSONStreamResult<JSONObjectStream> | JSONStreamResult<JSONArrayStream> | JSONStreamResult<string> | JSONStreamResult<boolean> | JSONStreamResult<null> | JSONStreamResult<number>>;
     parseObject(): JSONStreamResult<JSONObjectStream>;
     parseArray(): JSONStreamResult<JSONArrayStream>;
     parseNumber(): JSONStreamResult<number>;

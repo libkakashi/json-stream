@@ -40,14 +40,19 @@ var assert = (condition, message = "Assertion failed") => {
 var assertEq = (a, b, message = "Assertion failed") => {
   if (a !== b) throw new Error(`${message}: '${a}' !== '${b}'`);
 };
+console.log("v2");
 var JsonParser = class {
   #queue;
   #text = "";
   #index = 0;
   #stream;
   constructor(queue) {
+    console.log("v2");
     this.#queue = queue.pipe((r) => [...r]).flat();
-    this.#stream = this.parseValue();
+    this.#stream = (async () => {
+      await this.#skipWhiteSpaces();
+      return await this.parseValue();
+    })();
   }
   #isWhitespace(char) {
     return char === " " || char === "\n" || char === "	" || char === "\r";
@@ -77,8 +82,8 @@ var JsonParser = class {
     return chunk;
   }
   async #skipWhiteSpaces() {
-    for (let char = await this.#peekNonEof(1, "skipWhiteSpaces"); this.#isWhitespace(char); char = await this.#peekNonEof(1, "skipWhiteSpaces")) {
-      this.#nextNonEof();
+    while (this.#isWhitespace(await this.#peekNonEof())) {
+      await this.#nextNonEof();
     }
   }
   async #expectNext(expected) {
@@ -112,8 +117,7 @@ var JsonParser = class {
     };
     return result;
   }
-  async parseValue(skip = true) {
-    if (skip) await this.#skipWhiteSpaces();
+  async parseValue() {
     const next = await this.#peekNonEof();
     switch (next) {
       case "{":
@@ -141,6 +145,7 @@ var JsonParser = class {
       case "9":
         return this.parseNumber();
       default:
+        console.error(this.#text.slice(this.#index - 10));
         throw new Error(`Unexpected token ${next} at index ${this.#index} while parsing value in JSON`);
     }
   }
@@ -154,6 +159,7 @@ var JsonParser = class {
         await key.wait;
         await this.#skipWhiteSpaces();
         await this.#expectNext(":");
+        await this.#skipWhiteSpaces();
         const val = await this.parseValue();
         update((data) => void (data[key.data] = val), true);
         await val.wait;
@@ -170,7 +176,7 @@ var JsonParser = class {
       do {
         await this.#skipWhiteSpaces();
         if (await this.#peekNonEof() === "]") break;
-        const val = await this.parseValue(false);
+        const val = await this.parseValue();
         update((data) => void data.push(val), true);
         await val.wait;
         await this.#skipWhiteSpaces();
