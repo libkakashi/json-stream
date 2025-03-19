@@ -27,15 +27,13 @@ const assertEq = (a: unknown, b: unknown, message = 'Assertion failed') => {
   if (a !== b) throw new Error(`${message}: '${a}' !== '${b}'`);
 };
 
-const numbers = '0123456789';
-
 type UpdaterFunction<T> = (oldData: T) => T;
 type DeepUpdaterFunction<T> = (oldData: T) => void;
 type UpdateData<T> = T | UpdaterFunction<T>;
 
 class JsonParser<T> {
   #queue: Queue<string>;
-  #last = '';
+  #text = '';
   #index = 0;
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
@@ -49,14 +47,7 @@ class JsonParser<T> {
   }
 
   async #next(len = 1): Promise<string | undefined> {
-    let str = '';
-
-    for (let i = 0; i < len; i++) {
-      const char = await this.#queue.shiftUnsafe();
-      if (char === Queue.EOF) return undefined;
-      str += char;
-    }
-    this.#last = str.charAt(len - 1);
+    const str = await this.#peek(len);
     this.#index += len;
     return str;
   }
@@ -67,13 +58,29 @@ class JsonParser<T> {
     return chunk!;
   }
 
-  async #skipWhiteSpaces(): Promise<string> {
+  async #peek(len = 1): Promise<string | undefined> {
+    while (this.#text.length < this.#index + len) {
+      const char = await this.#queue.shiftUnsafe();
+      if (char === Queue.EOF) return undefined;
+      this.#text += char;
+    }
+    const result = this.#text.slice(this.#index, this.#index + len);
+    return result;
+  }
+
+  async #peekNonEof(len?: number, message?: string): Promise<string> {
+    const chunk = await this.#peek(len);
+    assert(chunk !== undefined, `Unexpected end of JSON input at index ${this.#index}: ${message}`);
+    return chunk!;
+  }
+
+  async #skipWhiteSpaces() {
     for (
-      let char = await this.#nextNonEof(1, 'skipWhiteSpaces');
-      ;
-      char = await this.#nextNonEof(1, 'skipWhiteSpaces')
+      let char = await this.#peekNonEof(1, 'skipWhiteSpaces');
+      this.#isWhitespace(char);
+      char = await this.#peekNonEof(1, 'skipWhiteSpaces')
     ) {
-      if (!this.#isWhitespace(char)) return char;
+      this.#nextNonEof();
     }
   }
 
@@ -100,16 +107,15 @@ class JsonParser<T> {
         }
         const newData = data(result.data);
 
-        if (newData) {
+        if (newData !== undefined) {
           throw new Error(
             'Update data must be undefined when using deep: true',
           );
         }
-        return;
       } else {
         const newData = data instanceof Function ? data(result.data) : data;
 
-        if (!newData) {
+        if (newData === undefined) {
           throw new Error('Update data cannot be undefined');
         }
         result.data = newData;
@@ -124,8 +130,9 @@ class JsonParser<T> {
 
   async parseValue(skip = true) {
     if (skip) await this.#skipWhiteSpaces();
+    const next = await this.#peekNonEof();
 
-    switch (this.#last) {
+    switch (next) {
       case '{':
         return this.parseObject();
       case '[':
@@ -138,6 +145,7 @@ class JsonParser<T> {
         return this.parseBoolean(false);
       case 'n':
         return this.parseNull();
+      case '-':
       case '0':
       case '1':
       case '2':
@@ -150,78 +158,119 @@ class JsonParser<T> {
       case '9':
         return this.parseNumber();
       default:
-        throw new Error(`Unexpected token ${this.#last} at index ${this.#index} while parsing value in JSON`);
+        throw new Error(`Unexpected token ${next} at index ${this.#index} while parsing value in JSON`);
     }
   }
 
   parseObject() {
     return this.#wrapResult<JSONObjectStream>({}, async update => {
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        await this.#skipWhiteSpaces();
-        if (this.#last === '}') break;
+      await this.#expectNext('{');
 
-        const key = this.parseString();
+      do {
+        await this.#skipWhiteSpaces();
+        if (await this.#peekNonEof() === '}') break;
+
+        const key = this.parseKey();
         await key.wait;
 
-        assertEq(await this.#skipWhiteSpaces(), ':');
+        await this.#skipWhiteSpaces();
+        await this.#expectNext(':');
 
         const val = await this.parseValue();
         update(data => void (data[key.data] = val), true);
 
         await val.wait;
 
-        if (typeof val!.data !== 'number' || this.#isWhitespace(this.#last)) {
-          await this.#skipWhiteSpaces();
-        }
-        if (this.#last === '}') break;
-        if (this.#last !== ',') {
-          throw new Error(`Unexpected token ${this.#last} at index ${this.#index} while parsing object in JSON`);
-        }
-      }
+        await this.#skipWhiteSpaces();
+        if (await this.#peekNonEof() === '}') break;
+
+        await this.#expectNext(',');
+      } while (true);
+
+      await this.#expectNext('}');
     });
   }
 
   parseArray() {
     return this.#wrapResult<JSONArrayStream>([], async update => {
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
+      await this.#expectNext('[');
+
+      do {
         await this.#skipWhiteSpaces();
-        if (this.#last === ']') break;
+        if (await this.#peekNonEof() === ']') break;
 
         const val = await this.parseValue(false);
         update(data => void data.push(val), true);
 
         await val.wait;
 
-        if (typeof val.data !== 'number' || this.#isWhitespace(this.#last)) {
-          await this.#skipWhiteSpaces();
-        }
-        if (this.#last === ']') break;
-        if (this.#last !== ',')
-          throw new Error(`Unexpected token ${this.#last} at index ${this.#index} while parsing array in JSON`);
+        await this.#skipWhiteSpaces();
+        if (await this.#peekNonEof() === ']') break;
+
+        await this.#expectNext(',');
+      } while (true);
+
+      await this.#expectNext(']');
+    });
+  }
+
+  #numbers = '0123456789';
+
+  parseNumber() {
+    return this.#wrapResult<number>(0, async update => {
+      let str = '';
+      const negative = await this.#peekNonEof() === '-';
+
+      if (negative) {
+        str += '-';
+        await this.#nextNonEof();
+      }
+      for (
+        let char = await this.#peekNonEof();
+        this.#numbers.includes(char) || char === '.';
+        char = await this.#peekNonEof()
+      ) {
+        await this.#nextNonEof();
+        str += char;
+
+        update(() => Number(str));
       }
     });
   }
 
-  parseNumber() {
-    return this.#wrapResult(parseInt(this.#last), async update => {
-      for (let char = await this.#next(); ; char = await this.#next()) {
-        if (!char || !(numbers.includes(char) && char !== '.')) {
-          break;
-        }
-        update(num => parseFloat(num.toString() + char));
+  parseKey() {
+    return this.#wrapResult<string>('', async update => {
+      const char = await this.#peekNonEof();
+      const key = char === '"' ? this.parseString() : this.parseIdentifier();
+
+      await key.wait;
+      update(key.data);
+    })
+  }
+
+  #letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890';
+
+  parseIdentifier() {
+    return this.#wrapResult<string>('', async update => {
+      for (
+        let char = await this.#peekNonEof();
+        this.#letters.includes(char);
+        char = await this.#peekNonEof()
+      ) {
+        await this.#nextNonEof();
+        update(id => id + char);
       }
     });
   }
 
   parseString() {
     return this.#wrapResult<string>('', async update => {
-      for (
-        let char = await this.#nextNonEof();
-        char !== '"';
-        char = await this.#nextNonEof()
-      ) {
+      await this.#expectNext('"');
+      await this.#peekNonEof();
+
+      while (await this.#peekNonEof() !== '"') {
+        const char = await this.#nextNonEof();
+
         if (char !== '\\') {
           update(str => str + char);
           continue;
@@ -248,20 +297,22 @@ class JsonParser<T> {
         } else if (nextChar === 'U') {
           const char = parseInt(await this.#nextNonEof(8), 16);
           update(str => str + String.fromCharCode(char));
+        } else {
+          throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#index} in JSON`);
         }
-        throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#index} in JSON`);
       }
+      await this.#expectNext('"');
     });
   }
 
   parseBoolean(expected: boolean) {
     return this.#wrapResult(expected, () =>
-      this.#expectNext(expected ? 'rue' : 'alse'),
+      this.#expectNext(expected ? 'true' : 'false'),
     );
   }
 
   parseNull() {
-    return this.#wrapResult(null, () => this.#expectNext('ull'));
+    return this.#wrapResult(null, () => this.#expectNext('null'));
   }
 
   async resolve(): Promise<T> {
@@ -275,7 +326,9 @@ class JsonParser<T> {
           return stream.data.map(this.#resolve) as T extends Array<unknown>
             ? T
             : never;
-        } else {
+        } else if (stream.data === null) {
+          return null as T;
+        } {
           const result: Record<string, unknown> = {};
           for (const key in stream.data) {
             result[key] = this.#resolve(stream.data[key]!);

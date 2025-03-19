@@ -16,6 +16,8 @@ declare class JsonParser<T> {
     parseObject(): JSONStreamResult<JSONObjectStream>;
     parseArray(): JSONStreamResult<JSONArrayStream>;
     parseNumber(): JSONStreamResult<number>;
+    parseKey(): JSONStreamResult<string>;
+    parseIdentifier(): JSONStreamResult<string>;
     parseString(): JSONStreamResult<string>;
     parseBoolean(expected: boolean): JSONStreamResult<boolean>;
     parseNull(): JSONStreamResult<null>;
