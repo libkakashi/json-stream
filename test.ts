@@ -19,7 +19,7 @@ const testCases = [
   },
   {
     name: 'Object with array',
-    input: '{title:[1,2,3],active:[{title: "test"}]}',
+    input: '{\ntitle:[1,2,3],active:[{title: "test"}]}',
     expected: { title: [1, 2, 3], active: [{ title: 'test' }] }
   },
   {

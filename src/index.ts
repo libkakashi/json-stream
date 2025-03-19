@@ -130,7 +130,6 @@ class JsonParser<T> {
     if (skip) await this.#skipWhiteSpaces();
     const next = await this.#peekNonEof();
 
-    console.log(next);
     switch (next) {
       case '{':
         return this.parseObject();
@@ -157,6 +156,7 @@ class JsonParser<T> {
       case '9':
         return this.parseNumber();
       default:
+        console.error(this.#text.slice(this.#index - 10));
         throw new Error(`Unexpected token ${next} at index ${this.#index} while parsing value in JSON`);
     }
   }
