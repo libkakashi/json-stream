@@ -59,17 +59,19 @@ const testCases = [
   },
   {
     name: 'Partial',
-    input: `{
+    input: `
+        {
 
-    title:"Introduction to Testing",
-    description:"A
-     comprehensive introduction to testing principles, methodologies, and best
-     practices for beginners. This course covers the fundamentals of testing, different
-     testing types, and basic test case design.",
-    contents:[
-
-      {
-        title:"Testing Fundamentals",`,
+title:"Introduction to Testing",
+description:"A comprehensive introduction to testing principles, methodologies, and best practices for beginners. This course covers the fundamentals of testing, different testing types, and basic test planning.",
+contents:[
+{
+title:"Understanding Testing Fundamentals",
+description:"Learn the core concepts and importance of testing in software development.",
+duration
+:15,
+contents:[
+{`,
     expected: {title: 'Introduction to Testing', description: 'T'}
   }
 ];
