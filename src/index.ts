@@ -75,12 +75,10 @@ class JsonParser<T> {
   }
 
   async #skipWhiteSpaces() {
-    for (
-      let char = await this.#peekNonEof(1, 'skipWhiteSpaces');
-      this.#isWhitespace(char);
-      char = await this.#peekNonEof(1, 'skipWhiteSpaces')
+    while (
+      this.#isWhitespace(await this.#peekNonEof())
     ) {
-      this.#nextNonEof();
+      await this.#nextNonEof();
     }
   }
 
@@ -132,6 +130,7 @@ class JsonParser<T> {
     if (skip) await this.#skipWhiteSpaces();
     const next = await this.#peekNonEof();
 
+    console.log(next);
     switch (next) {
       case '{':
         return this.parseObject();

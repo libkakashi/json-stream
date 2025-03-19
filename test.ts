@@ -19,8 +19,8 @@ const testCases = [
   },
   {
     name: 'Object with array',
-    input: '{numbers:[1,2,3],active:true}',
-    expected: { numbers: [1, 2, 3], active: true }
+    input: '{title:[1,2,3],active:[{title: "test"}]}',
+    expected: { title: [1, 2, 3], active: [{ title: 'test' }] }
   },
   {
     name: 'Array of objects',
