@@ -20,7 +20,7 @@ import JsonParser from 'json-stream';
 
 const queue = new Queue<string>();
 // Make sure to keep every property optional since you never know when they'll be populated.
-const parser = new JsonParser<{name?: string; description?: string}>(queue);
+const jsonStream = new JsonParser<{name?: string; description?: string}>(queue);
 
 const res = await axios.get('streaming-json-endpoint', {
   responseType: 'stream',
