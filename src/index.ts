@@ -40,7 +40,6 @@ class JsonParser<T> {
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
   constructor(queue: Queue<string>) {
-    console.log('v2');
     this.#queue = queue.pipe(r => [...r]).flat();
 
     this.#stream = (async () => {
