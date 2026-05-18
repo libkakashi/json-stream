@@ -241,28 +241,15 @@ class JsonParser<T> {
 
       if ((await this.#peekNonEof()) === '-') await consume();
 
-      const intStart = await this.#peekNonEof();
-      if (intStart === '0') {
-        await consume();
-        if (isDigit(await this.#peek())) {
-          throw new Error(
-            `Unexpected digit after leading 0 at index ${this.#pos}`,
-          );
-        }
-      } else if (isDigit(intStart)) {
-        await consume();
-        while (isDigit(await this.#peek())) await consume();
-      } else {
+      if (!isDigit(await this.#peekNonEof())) {
         throw new Error(
-          `Expected digit at index ${this.#pos}, got '${intStart}'`,
+          `Expected digit at index ${this.#pos}, got '${await this.#peek()}'`,
         );
       }
+      while (isDigit(await this.#peek())) await consume();
 
       if ((await this.#peek()) === '.') {
         await consume();
-        if (!isDigit(await this.#peek())) {
-          throw new Error(`Expected digit after '.' at index ${this.#pos}`);
-        }
         while (isDigit(await this.#peek())) await consume();
       }
 
@@ -271,9 +258,6 @@ class JsonParser<T> {
         await consume();
         const sign = await this.#peek();
         if (sign === '+' || sign === '-') await consume();
-        if (!isDigit(await this.#peek())) {
-          throw new Error(`Expected digit in exponent at index ${this.#pos}`);
-        }
         while (isDigit(await this.#peek())) await consume();
       }
     });
@@ -337,7 +321,7 @@ class JsonParser<T> {
           update(str => str + String.fromCharCode(char));
         } else if (nextChar === 'U') {
           const char = parseInt(await this.#nextNonEof(8), 16);
-          update(str => str + String.fromCharCode(char));
+          update(str => str + String.fromCodePoint(char));
         } else {
           throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#pos} in JSON`);
         }
