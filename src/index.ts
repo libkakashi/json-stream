@@ -45,6 +45,7 @@ class JsonParser<T> {
       await this.#skipWhiteSpaces();
       return await this.parseValue()
     })();
+    this.#stream.catch(() => {});
   }
 
   get #pos() {
@@ -138,6 +139,7 @@ class JsonParser<T> {
       data: initialData,
       wait: callback(update).then(() => result.data),
     };
+    result.wait.catch(() => {});
     return result;
   }
 
