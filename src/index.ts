@@ -39,7 +39,7 @@ class JsonParser<T> {
 
     this.#stream = (async () => {
       await this.#skipWhiteSpaces();
-      return await this.parseValue()
+      return await this.#parseValue()
     })();
     this.#stream.catch(() => {});
   }
@@ -128,22 +128,22 @@ class JsonParser<T> {
     return result;
   }
 
-  async parseValue() {
+  async #parseValue() {
     const next = await this.#peekNonEof();
 
     switch (next) {
       case '{':
-        return this.parseObject();
+        return this.#parseObject();
       case '[':
-        return this.parseArray();
+        return this.#parseArray();
       case '"':
-        return this.parseString();
+        return this.#parseString();
       case 't':
-        return this.parseBoolean(true);
+        return this.#parseBoolean(true);
       case 'f':
-        return this.parseBoolean(false);
+        return this.#parseBoolean(false);
       case 'n':
-        return this.parseNull();
+        return this.#parseNull();
       case '-':
       case '0':
       case '1':
@@ -155,13 +155,13 @@ class JsonParser<T> {
       case '7':
       case '8':
       case '9':
-        return this.parseNumber();
+        return this.#parseNumber();
       default:
         throw new Error(`Unexpected token ${next} at index ${this.#pos} while parsing value in JSON`);
     }
   }
 
-  parseObject() {
+  #parseObject() {
     return this.#wrapResult<JSONObjectStream>({}, async ({mutate}) => {
       await this.#expectNext('{');
 
@@ -169,14 +169,14 @@ class JsonParser<T> {
         await this.#skipWhiteSpaces();
         if (await this.#peekNonEof() === '}') break;
 
-        const key = await this.parseKey();
+        const key = await this.#parseKey();
         await key.wait;
 
         await this.#skipWhiteSpaces();
         await this.#expectNext(':');
         await this.#skipWhiteSpaces();
 
-        const val = await this.parseValue();
+        const val = await this.#parseValue();
         mutate(data => void (data[key.data] = val));
 
         await val.wait;
@@ -191,7 +191,7 @@ class JsonParser<T> {
     });
   }
 
-  parseArray() {
+  #parseArray() {
     return this.#wrapResult<JSONArrayStream>([], async ({mutate}) => {
       await this.#expectNext('[');
 
@@ -199,7 +199,7 @@ class JsonParser<T> {
         await this.#skipWhiteSpaces();
         if (await this.#peekNonEof() === ']') break;
 
-        const val = await this.parseValue();
+        const val = await this.#parseValue();
         mutate(data => void data.push(val));
 
         await val.wait;
@@ -216,7 +216,7 @@ class JsonParser<T> {
 
   #numbers = '0123456789';
 
-  parseNumber() {
+  #parseNumber() {
     return this.#wrapResult<number>(0, async ({set}) => {
       let str = '';
       const consume = async () => {
@@ -250,14 +250,14 @@ class JsonParser<T> {
     });
   }
 
-  async parseKey(): Promise<JSONStreamResult<string>> {
+  async #parseKey(): Promise<JSONStreamResult<string>> {
     const char = await this.#peekNonEof();
-    return char === '"' ? this.parseString() : this.parseIdentifier();
+    return char === '"' ? this.#parseString() : this.#parseIdentifier();
   }
 
   #letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890';
 
-  parseIdentifier() {
+  #parseIdentifier() {
     return this.#wrapResult<string>('', async ({set}) => {
       for (
         let char = await this.#peekNonEof();
@@ -270,7 +270,7 @@ class JsonParser<T> {
     });
   }
 
-  parseString() {
+  #parseString() {
     return this.#wrapResult<string>('', async ({set}) => {
       await this.#expectNext('"');
       await this.#peekNonEof();
@@ -312,13 +312,13 @@ class JsonParser<T> {
     });
   }
 
-  parseBoolean(expected: boolean) {
+  #parseBoolean(expected: boolean) {
     return this.#wrapResult(expected, () =>
       this.#expectNext(expected ? 'true' : 'false'),
     );
   }
 
-  parseNull() {
+  #parseNull() {
     return this.#wrapResult(null, () => this.#expectNext('null'));
   }
 
