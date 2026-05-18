@@ -232,21 +232,49 @@ class JsonParser<T> {
   parseNumber() {
     return this.#wrapResult<number>(0, async update => {
       let str = '';
-      const negative = await this.#peekNonEof() === '-';
-
-      if (negative) {
-        str += '-';
-        await this.#nextNonEof();
-      }
-      for (
-        let char = await this.#peekNonEof();
-        this.#numbers.includes(char) || char === '.';
-        char = await this.#peekNonEof()
-      ) {
-        await this.#nextNonEof();
-        str += char;
-
+      const consume = async () => {
+        str += await this.#nextNonEof();
         update(() => Number(str));
+      };
+      const isDigit = (c: string | undefined) =>
+        c !== undefined && this.#numbers.includes(c);
+
+      if ((await this.#peekNonEof()) === '-') await consume();
+
+      const intStart = await this.#peekNonEof();
+      if (intStart === '0') {
+        await consume();
+        if (isDigit(await this.#peek())) {
+          throw new Error(
+            `Unexpected digit after leading 0 at index ${this.#pos}`,
+          );
+        }
+      } else if (isDigit(intStart)) {
+        await consume();
+        while (isDigit(await this.#peek())) await consume();
+      } else {
+        throw new Error(
+          `Expected digit at index ${this.#pos}, got '${intStart}'`,
+        );
+      }
+
+      if ((await this.#peek()) === '.') {
+        await consume();
+        if (!isDigit(await this.#peek())) {
+          throw new Error(`Expected digit after '.' at index ${this.#pos}`);
+        }
+        while (isDigit(await this.#peek())) await consume();
+      }
+
+      const expChar = await this.#peek();
+      if (expChar === 'e' || expChar === 'E') {
+        await consume();
+        const sign = await this.#peek();
+        if (sign === '+' || sign === '-') await consume();
+        if (!isDigit(await this.#peek())) {
+          throw new Error(`Expected digit in exponent at index ${this.#pos}`);
+        }
+        while (isDigit(await this.#peek())) await consume();
       }
     });
   }
