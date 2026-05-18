@@ -27,10 +27,6 @@ const assertEq = (a: unknown, b: unknown, message = 'Assertion failed') => {
   if (a !== b) throw new Error(`${message}: '${a}' !== '${b}'`);
 };
 
-type UpdaterFunction<T> = (oldData: T) => T;
-type DeepUpdaterFunction<T> = (oldData: T) => void;
-type UpdateData<T> = T | UpdaterFunction<T>;
-
 class JsonParser<T> {
   #queue: Superqueue<string>;
   #text = '';
@@ -106,38 +102,27 @@ class JsonParser<T> {
 
   #wrapResult<V extends JSONStreamValue>(
     initialData: V,
-    callback: (update: {
-      (data: UpdateData<V> | UpdaterFunction<V>, deep?: false): void;
-      (data: DeepUpdaterFunction<V>, deep: true): void;
+    callback: (api: {
+      set: (data: V | ((old: V) => V)) => void;
+      mutate: (fn: (data: V) => void) => void;
     }) => Promise<unknown>,
   ): JSONStreamResult<V> {
-    const update = (
-      data: UpdateData<V> | UpdaterFunction<V> | DeepUpdaterFunction<V>,
-      deep = false,
-    ) => {
-      if (deep) {
-        if (!(data instanceof Function)) {
-          throw new Error('Data must be a function when using deep: true');
-        }
-        const newData = data(result.data);
-
-        if (newData !== undefined) {
-          throw new Error(
-            'Update data must be undefined when using deep: true',
-          );
-        }
-      } else {
-        const newData = data instanceof Function ? data(result.data) : data;
-
-        if (newData === undefined) {
-          throw new Error('Update data cannot be undefined');
-        }
-        result.data = newData;
+    const set = (data: V | ((old: V) => V)) => {
+      const newData = data instanceof Function ? data(result.data) : data;
+      if (newData === undefined) {
+        throw new Error('set: data cannot be undefined');
+      }
+      result.data = newData;
+    };
+    const mutate = (fn: (data: V) => void) => {
+      const ret = fn(result.data);
+      if (ret !== undefined) {
+        throw new Error('mutate: callback must return undefined');
       }
     };
     const result: JSONStreamResult<V> = {
       data: initialData,
-      wait: callback(update).then(() => result.data),
+      wait: callback({set, mutate}).then(() => result.data),
     };
     result.wait.catch(() => {});
     return result;
@@ -177,7 +162,7 @@ class JsonParser<T> {
   }
 
   parseObject() {
-    return this.#wrapResult<JSONObjectStream>({}, async update => {
+    return this.#wrapResult<JSONObjectStream>({}, async ({mutate}) => {
       await this.#expectNext('{');
 
       do {
@@ -192,7 +177,7 @@ class JsonParser<T> {
         await this.#skipWhiteSpaces();
 
         const val = await this.parseValue();
-        update(data => void (data[key.data] = val), true);
+        mutate(data => void (data[key.data] = val));
 
         await val.wait;
 
@@ -207,7 +192,7 @@ class JsonParser<T> {
   }
 
   parseArray() {
-    return this.#wrapResult<JSONArrayStream>([], async update => {
+    return this.#wrapResult<JSONArrayStream>([], async ({mutate}) => {
       await this.#expectNext('[');
 
       do {
@@ -215,7 +200,7 @@ class JsonParser<T> {
         if (await this.#peekNonEof() === ']') break;
 
         const val = await this.parseValue();
-        update(data => void data.push(val), true);
+        mutate(data => void data.push(val));
 
         await val.wait;
 
@@ -232,11 +217,11 @@ class JsonParser<T> {
   #numbers = '0123456789';
 
   parseNumber() {
-    return this.#wrapResult<number>(0, async update => {
+    return this.#wrapResult<number>(0, async ({set}) => {
       let str = '';
       const consume = async () => {
         str += await this.#nextNonEof();
-        update(() => Number(str));
+        set(() => Number(str));
       };
       const isDigit = (c: string | undefined) =>
         c !== undefined && this.#numbers.includes(c);
@@ -273,20 +258,20 @@ class JsonParser<T> {
   #letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890';
 
   parseIdentifier() {
-    return this.#wrapResult<string>('', async update => {
+    return this.#wrapResult<string>('', async ({set}) => {
       for (
         let char = await this.#peekNonEof();
         this.#letters.includes(char);
         char = await this.#peekNonEof()
       ) {
         await this.#nextNonEof();
-        update(id => id + char);
+        set(id => id + char);
       }
     });
   }
 
   parseString() {
-    return this.#wrapResult<string>('', async update => {
+    return this.#wrapResult<string>('', async ({set}) => {
       await this.#expectNext('"');
       await this.#peekNonEof();
 
@@ -294,7 +279,7 @@ class JsonParser<T> {
         const char = await this.#nextNonEof();
 
         if (char !== '\\') {
-          update(str => str + char);
+          set(str => str + char);
           continue;
         }
         const nextChar = await this.#nextNonEof();
@@ -310,15 +295,15 @@ class JsonParser<T> {
           t: '\t',
         };
         if (escapeSequences[nextChar]) {
-          update(str => str + escapeSequences[nextChar]);
+          set(str => str + escapeSequences[nextChar]);
           continue;
         }
         if (nextChar === 'u') {
           const char = parseInt(await this.#nextNonEof(4), 16);
-          update(str => str + String.fromCharCode(char));
+          set(str => str + String.fromCharCode(char));
         } else if (nextChar === 'U') {
           const char = parseInt(await this.#nextNonEof(8), 16);
-          update(str => str + String.fromCodePoint(char));
+          set(str => str + String.fromCodePoint(char));
         } else {
           throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#pos} in JSON`);
         }
