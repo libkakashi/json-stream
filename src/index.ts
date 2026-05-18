@@ -104,15 +104,15 @@ class JsonParser<T> {
     return char;
   }
 
-  #wrapResult<T extends JSONStreamValue>(
-    initialData: T,
+  #wrapResult<V extends JSONStreamValue>(
+    initialData: V,
     callback: (update: {
-      (data: UpdateData<T> | UpdaterFunction<T>, deep?: false): void;
-      (data: DeepUpdaterFunction<T>, deep: true): void;
+      (data: UpdateData<V> | UpdaterFunction<V>, deep?: false): void;
+      (data: DeepUpdaterFunction<V>, deep: true): void;
     }) => Promise<unknown>,
-  ): JSONStreamResult<T> {
+  ): JSONStreamResult<V> {
     const update = (
-      data: UpdateData<T> | UpdaterFunction<T> | DeepUpdaterFunction<T>,
+      data: UpdateData<V> | UpdaterFunction<V> | DeepUpdaterFunction<V>,
       deep = false,
     ) => {
       if (deep) {
@@ -135,7 +135,7 @@ class JsonParser<T> {
         result.data = newData;
       }
     };
-    const result: JSONStreamResult<T> = {
+    const result: JSONStreamResult<V> = {
       data: initialData,
       wait: callback(update).then(() => result.data),
     };
