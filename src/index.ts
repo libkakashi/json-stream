@@ -31,8 +31,6 @@ type UpdaterFunction<T> = (oldData: T) => T;
 type DeepUpdaterFunction<T> = (oldData: T) => void;
 type UpdateData<T> = T | UpdaterFunction<T>;
 
-console.log('v2');
-
 class JsonParser<T> {
   #queue: Superqueue<string>;
   #text = '';
@@ -161,7 +159,6 @@ class JsonParser<T> {
       case '9':
         return this.parseNumber();
       default:
-        console.error(this.#text.slice(this.#index - 10));
         throw new Error(`Unexpected token ${next} at index ${this.#index} while parsing value in JSON`);
     }
   }
