@@ -1,292 +1,249 @@
-"use strict";
+//#region \0rolldown/runtime.js
 var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
 var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
 var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
+	if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames(from), i = 0, n = keys.length, key; i < n; i++) {
+		key = keys[i];
+		if (!__hasOwnProp.call(to, key) && key !== except) __defProp(to, key, {
+			get: ((k) => from[k]).bind(null, key),
+			enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable
+		});
+	}
+	return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-
-// src/index.ts
-var index_exports = {};
-__export(index_exports, {
-  default: () => index_default
-});
-module.exports = __toCommonJS(index_exports);
-var import_superqueue = __toESM(require("superqueue"), 1);
-var assert = (condition, message = "Assertion failed") => {
-  if (!condition) throw new Error(message);
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", {
+	value: mod,
+	enumerable: true
+}) : target, mod));
+//#endregion
+let superqueue = require("superqueue");
+superqueue = __toESM(superqueue, 1);
+//#region src/index.ts
+const assert = (condition, message = "Assertion failed") => {
+	if (!condition) throw new Error(message);
 };
-var assertEq = (a, b, message = "Assertion failed") => {
-  if (a !== b) throw new Error(`${message}: '${a}' !== '${b}'`);
+const assertEq = (a, b, message = "Assertion failed") => {
+	if (a !== b) throw new Error(`${message}: '${a}' !== '${b}'`);
 };
 console.log("v2");
 var JsonParser = class {
-  #queue;
-  #text = "";
-  #index = 0;
-  #stream;
-  constructor(queue) {
-    console.log("v2");
-    this.#queue = queue.pipe((r) => [...r]).flat();
-    this.#stream = (async () => {
-      await this.#skipWhiteSpaces();
-      return await this.parseValue();
-    })();
-  }
-  #isWhitespace(char) {
-    return char === " " || char === "\n" || char === "	" || char === "\r";
-  }
-  async #next(len = 1) {
-    const str = await this.#peek(len);
-    this.#index += len;
-    return str;
-  }
-  async #nextNonEof(len, message) {
-    const chunk = await this.#next(len);
-    assert(chunk !== void 0, `Unexpected end of JSON input at index ${this.#index}: ${message}`);
-    return chunk;
-  }
-  async #peek(len = 1) {
-    while (this.#text.length < this.#index + len) {
-      const char = await this.#queue.shiftUnsafe();
-      if (char === import_superqueue.default.EOF) return void 0;
-      this.#text += char;
-    }
-    const result = this.#text.slice(this.#index, this.#index + len);
-    return result;
-  }
-  async #peekNonEof(len, message) {
-    const chunk = await this.#peek(len);
-    assert(chunk !== void 0, `Unexpected end of JSON input at index ${this.#index}: ${message}`);
-    return chunk;
-  }
-  async #skipWhiteSpaces() {
-    while (this.#isWhitespace(await this.#peekNonEof())) {
-      await this.#nextNonEof();
-    }
-  }
-  async #expectNext(expected) {
-    const char = await this.#nextNonEof(expected.length, `Expected '${expected}' at index ${this.#index}, got EOF.`);
-    assertEq(char, expected, `Expected '${expected}' at index ${this.#index}, got '${char}'`);
-    return char;
-  }
-  #wrapResult(initialData, callback) {
-    const update = (data, deep = false) => {
-      if (deep) {
-        if (!(data instanceof Function)) {
-          throw new Error("Data must be a function when using deep: true");
-        }
-        const newData = data(result.data);
-        if (newData !== void 0) {
-          throw new Error(
-            "Update data must be undefined when using deep: true"
-          );
-        }
-      } else {
-        const newData = data instanceof Function ? data(result.data) : data;
-        if (newData === void 0) {
-          throw new Error("Update data cannot be undefined");
-        }
-        result.data = newData;
-      }
-    };
-    const result = {
-      data: initialData,
-      wait: callback(update).then(() => result.data)
-    };
-    return result;
-  }
-  async parseValue() {
-    const next = await this.#peekNonEof();
-    switch (next) {
-      case "{":
-        return this.parseObject();
-      case "[":
-        return this.parseArray();
-      case '"':
-        return this.parseString();
-      case "t":
-        return this.parseBoolean(true);
-      case "f":
-        return this.parseBoolean(false);
-      case "n":
-        return this.parseNull();
-      case "-":
-      case "0":
-      case "1":
-      case "2":
-      case "3":
-      case "4":
-      case "5":
-      case "6":
-      case "7":
-      case "8":
-      case "9":
-        return this.parseNumber();
-      default:
-        console.error(this.#text.slice(this.#index - 10));
-        throw new Error(`Unexpected token ${next} at index ${this.#index} while parsing value in JSON`);
-    }
-  }
-  parseObject() {
-    return this.#wrapResult({}, async (update) => {
-      await this.#expectNext("{");
-      do {
-        await this.#skipWhiteSpaces();
-        if (await this.#peekNonEof() === "}") break;
-        const key = this.parseKey();
-        await key.wait;
-        await this.#skipWhiteSpaces();
-        await this.#expectNext(":");
-        await this.#skipWhiteSpaces();
-        const val = await this.parseValue();
-        update((data) => void (data[key.data] = val), true);
-        await val.wait;
-        await this.#skipWhiteSpaces();
-        if (await this.#peekNonEof() === "}") break;
-        await this.#expectNext(",");
-      } while (true);
-      await this.#expectNext("}");
-    });
-  }
-  parseArray() {
-    return this.#wrapResult([], async (update) => {
-      await this.#expectNext("[");
-      do {
-        await this.#skipWhiteSpaces();
-        if (await this.#peekNonEof() === "]") break;
-        const val = await this.parseValue();
-        update((data) => void data.push(val), true);
-        await val.wait;
-        await this.#skipWhiteSpaces();
-        if (await this.#peekNonEof() === "]") break;
-        await this.#expectNext(",");
-      } while (true);
-      await this.#expectNext("]");
-    });
-  }
-  #numbers = "0123456789";
-  parseNumber() {
-    return this.#wrapResult(0, async (update) => {
-      let str = "";
-      const negative = await this.#peekNonEof() === "-";
-      if (negative) {
-        str += "-";
-        await this.#nextNonEof();
-      }
-      for (let char = await this.#peekNonEof(); this.#numbers.includes(char) || char === "."; char = await this.#peekNonEof()) {
-        await this.#nextNonEof();
-        str += char;
-        update(() => Number(str));
-      }
-    });
-  }
-  parseKey() {
-    return this.#wrapResult("", async (update) => {
-      const char = await this.#peekNonEof();
-      const key = char === '"' ? this.parseString() : this.parseIdentifier();
-      await key.wait;
-      update(key.data);
-    });
-  }
-  #letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890";
-  parseIdentifier() {
-    return this.#wrapResult("", async (update) => {
-      for (let char = await this.#peekNonEof(); this.#letters.includes(char); char = await this.#peekNonEof()) {
-        await this.#nextNonEof();
-        update((id) => id + char);
-      }
-    });
-  }
-  parseString() {
-    return this.#wrapResult("", async (update) => {
-      await this.#expectNext('"');
-      await this.#peekNonEof();
-      while (await this.#peekNonEof() !== '"') {
-        const char = await this.#nextNonEof();
-        if (char !== "\\") {
-          update((str) => str + char);
-          continue;
-        }
-        const nextChar = await this.#nextNonEof();
-        const escapeSequences = {
-          '"': '"',
-          "\\": "\\",
-          "/": "/",
-          b: "\b",
-          f: "\f",
-          n: "\n",
-          r: "\r",
-          t: "	"
-        };
-        if (escapeSequences[nextChar]) {
-          update((str) => str + escapeSequences[nextChar]);
-          continue;
-        }
-        if (nextChar === "u") {
-          const char2 = parseInt(await this.#nextNonEof(4), 16);
-          update((str) => str + String.fromCharCode(char2));
-        } else if (nextChar === "U") {
-          const char2 = parseInt(await this.#nextNonEof(8), 16);
-          update((str) => str + String.fromCharCode(char2));
-        } else {
-          throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#index} in JSON`);
-        }
-      }
-      await this.#expectNext('"');
-    });
-  }
-  parseBoolean(expected) {
-    return this.#wrapResult(
-      expected,
-      () => this.#expectNext(expected ? "true" : "false")
-    );
-  }
-  parseNull() {
-    return this.#wrapResult(null, () => this.#expectNext("null"));
-  }
-  async resolve() {
-    return this.#resolve(await this.#stream);
-  }
-  #resolve = (stream) => {
-    switch (typeof stream.data) {
-      case "object":
-        if (Array.isArray(stream.data)) {
-          return stream.data.map(this.#resolve);
-        } else if (stream.data === null) {
-          return null;
-        }
-        {
-          const result = {};
-          for (const key in stream.data) {
-            result[key] = this.#resolve(stream.data[key]);
-          }
-          return result;
-        }
-      default:
-        return stream.data;
-    }
-  };
+	#queue;
+	#text = "";
+	#index = 0;
+	#stream;
+	constructor(queue) {
+		this.#queue = queue.pipe((r) => [...r]).flat();
+		this.#stream = (async () => {
+			await this.#skipWhiteSpaces();
+			return await this.parseValue();
+		})();
+	}
+	#isWhitespace(char) {
+		return char === " " || char === "\n" || char === "	" || char === "\r";
+	}
+	async #next(len = 1) {
+		const str = await this.#peek(len);
+		this.#index += len;
+		return str;
+	}
+	async #nextNonEof(len, message) {
+		const chunk = await this.#next(len);
+		assert(chunk !== void 0, `Unexpected end of JSON input at index ${this.#index}: ${message}`);
+		return chunk;
+	}
+	async #peek(len = 1) {
+		while (this.#text.length < this.#index + len) {
+			const char = await this.#queue.shiftUnsafe();
+			if (char === superqueue.default.EOF) return void 0;
+			this.#text += char;
+		}
+		return this.#text.slice(this.#index, this.#index + len);
+	}
+	async #peekNonEof(len, message) {
+		const chunk = await this.#peek(len);
+		assert(chunk !== void 0, `Unexpected end of JSON input at index ${this.#index}: ${message}`);
+		return chunk;
+	}
+	async #skipWhiteSpaces() {
+		while (this.#isWhitespace(await this.#peekNonEof())) await this.#nextNonEof();
+	}
+	async #expectNext(expected) {
+		const char = await this.#nextNonEof(expected.length, `Expected '${expected}' at index ${this.#index}, got EOF.`);
+		assertEq(char, expected, `Expected '${expected}' at index ${this.#index}, got '${char}'`);
+		return char;
+	}
+	#wrapResult(initialData, callback) {
+		const update = (data, deep = false) => {
+			if (deep) {
+				if (!(data instanceof Function)) throw new Error("Data must be a function when using deep: true");
+				if (data(result.data) !== void 0) throw new Error("Update data must be undefined when using deep: true");
+			} else {
+				const newData = data instanceof Function ? data(result.data) : data;
+				if (newData === void 0) throw new Error("Update data cannot be undefined");
+				result.data = newData;
+			}
+		};
+		const result = {
+			data: initialData,
+			wait: callback(update).then(() => result.data)
+		};
+		return result;
+	}
+	async parseValue() {
+		const next = await this.#peekNonEof();
+		switch (next) {
+			case "{": return this.parseObject();
+			case "[": return this.parseArray();
+			case "\"": return this.parseString();
+			case "t": return this.parseBoolean(true);
+			case "f": return this.parseBoolean(false);
+			case "n": return this.parseNull();
+			case "-":
+			case "0":
+			case "1":
+			case "2":
+			case "3":
+			case "4":
+			case "5":
+			case "6":
+			case "7":
+			case "8":
+			case "9": return this.parseNumber();
+			default:
+				console.error(this.#text.slice(this.#index - 10));
+				throw new Error(`Unexpected token ${next} at index ${this.#index} while parsing value in JSON`);
+		}
+	}
+	parseObject() {
+		return this.#wrapResult({}, async (update) => {
+			await this.#expectNext("{");
+			do {
+				await this.#skipWhiteSpaces();
+				if (await this.#peekNonEof() === "}") break;
+				const key = this.parseKey();
+				await key.wait;
+				await this.#skipWhiteSpaces();
+				await this.#expectNext(":");
+				await this.#skipWhiteSpaces();
+				const val = await this.parseValue();
+				update((data) => void (data[key.data] = val), true);
+				await val.wait;
+				await this.#skipWhiteSpaces();
+				if (await this.#peekNonEof() === "}") break;
+				await this.#expectNext(",");
+			} while (true);
+			await this.#expectNext("}");
+		});
+	}
+	parseArray() {
+		return this.#wrapResult([], async (update) => {
+			await this.#expectNext("[");
+			do {
+				await this.#skipWhiteSpaces();
+				if (await this.#peekNonEof() === "]") break;
+				const val = await this.parseValue();
+				update((data) => void data.push(val), true);
+				await val.wait;
+				await this.#skipWhiteSpaces();
+				if (await this.#peekNonEof() === "]") break;
+				await this.#expectNext(",");
+			} while (true);
+			await this.#expectNext("]");
+		});
+	}
+	#numbers = "0123456789";
+	parseNumber() {
+		return this.#wrapResult(0, async (update) => {
+			let str = "";
+			if (await this.#peekNonEof() === "-") {
+				str += "-";
+				await this.#nextNonEof();
+			}
+			for (let char = await this.#peekNonEof(); this.#numbers.includes(char) || char === "."; char = await this.#peekNonEof()) {
+				await this.#nextNonEof();
+				str += char;
+				update(() => Number(str));
+			}
+		});
+	}
+	parseKey() {
+		return this.#wrapResult("", async (update) => {
+			const key = await this.#peekNonEof() === "\"" ? this.parseString() : this.parseIdentifier();
+			await key.wait;
+			update(key.data);
+		});
+	}
+	#letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890";
+	parseIdentifier() {
+		return this.#wrapResult("", async (update) => {
+			for (let char = await this.#peekNonEof(); this.#letters.includes(char); char = await this.#peekNonEof()) {
+				await this.#nextNonEof();
+				update((id) => id + char);
+			}
+		});
+	}
+	parseString() {
+		return this.#wrapResult("", async (update) => {
+			await this.#expectNext("\"");
+			await this.#peekNonEof();
+			while (await this.#peekNonEof() !== "\"") {
+				const char = await this.#nextNonEof();
+				if (char !== "\\") {
+					update((str) => str + char);
+					continue;
+				}
+				const nextChar = await this.#nextNonEof();
+				const escapeSequences = {
+					"\"": "\"",
+					"\\": "\\",
+					"/": "/",
+					b: "\b",
+					f: "\f",
+					n: "\n",
+					r: "\r",
+					t: "	"
+				};
+				if (escapeSequences[nextChar]) {
+					update((str) => str + escapeSequences[nextChar]);
+					continue;
+				}
+				if (nextChar === "u") {
+					const char = parseInt(await this.#nextNonEof(4), 16);
+					update((str) => str + String.fromCharCode(char));
+				} else if (nextChar === "U") {
+					const char = parseInt(await this.#nextNonEof(8), 16);
+					update((str) => str + String.fromCharCode(char));
+				} else throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#index} in JSON`);
+			}
+			await this.#expectNext("\"");
+		});
+	}
+	parseBoolean(expected) {
+		return this.#wrapResult(expected, () => this.#expectNext(expected ? "true" : "false"));
+	}
+	parseNull() {
+		return this.#wrapResult(null, () => this.#expectNext("null"));
+	}
+	async resolve() {
+		return this.#resolve(await this.#stream);
+	}
+	#resolve = (stream) => {
+		switch (typeof stream.data) {
+			case "object":
+				if (Array.isArray(stream.data)) return stream.data.map(this.#resolve);
+				else if (stream.data === null) return null;
+				{
+					const result = {};
+					for (const key in stream.data) result[key] = this.#resolve(stream.data[key]);
+					return result;
+				}
+			default: return stream.data;
+		}
+	};
 };
-var index_default = JsonParser;
+//#endregion
+module.exports = JsonParser;

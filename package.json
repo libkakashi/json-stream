@@ -7,10 +7,9 @@
     "url": "git+https://github.com/libkakashi/json-stream.git"
   },
   "devDependencies": {
-    "@types/bun": "^1.2.4",
-    "gts": "^6.0.2",
-    "tsup": "^8.4.0",
-    "typescript": "^5.8.2"
+    "gts": "^7.0.0",
+    "tsdown": "^0.21.1",
+    "typescript": "^5.9.3"
   },
   "exports": {
     ".": {
@@ -30,7 +29,7 @@
   "homepage": "https://github.com/libkakashi/json-stream#readme",
   "license": "MIT",
   "scripts": {
-    "compile": "tsup src/index.ts --format cjs,esm --dts -d build",
+    "compile": "tsdown",
     "lint": "gts lint",
     "clean": "gts clean",
     "fix": "gts fix"
