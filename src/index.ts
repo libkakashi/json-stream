@@ -335,7 +335,7 @@ class JsonParser<T> {
             : never;
         } else if (stream.data === null) {
           return null as T;
-        } {
+        } else {
           const result: Record<string, unknown> = {};
           for (const key in stream.data) {
             result[key] = this.#resolve(stream.data[key]!);
