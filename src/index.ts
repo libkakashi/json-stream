@@ -52,6 +52,7 @@ class JsonParser<T> {
 
   async #next(len = 1): Promise<string | undefined> {
     const str = await this.#peek(len);
+    if (str === undefined) return undefined;
     this.#index += len;
     return str;
   }
