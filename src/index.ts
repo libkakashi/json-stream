@@ -182,7 +182,7 @@ class JsonParser<T> {
         await this.#skipWhiteSpaces();
         if (await this.#peekNonEof() === '}') break;
 
-        const key = this.parseKey();
+        const key = await this.parseKey();
         await key.wait;
 
         await this.#skipWhiteSpaces();
@@ -263,14 +263,9 @@ class JsonParser<T> {
     });
   }
 
-  parseKey() {
-    return this.#wrapResult<string>('', async update => {
-      const char = await this.#peekNonEof();
-      const key = char === '"' ? this.parseString() : this.parseIdentifier();
-
-      await key.wait;
-      update(key.data);
-    })
+  async parseKey(): Promise<JSONStreamResult<string>> {
+    const char = await this.#peekNonEof();
+    return char === '"' ? this.parseString() : this.parseIdentifier();
   }
 
   #letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_1234567890';
