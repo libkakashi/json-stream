@@ -1,4 +1,4 @@
-import Queue from 'superqueue';
+import {Superqueue} from 'superqueue';
 import JsonParser from './src';
 
 const testCases = [
@@ -78,7 +78,7 @@ contents:[
 
 // Helper function to create a queue from string and parse it
 const parseJson = async <T>(json: string): Promise<T> => {
-  const queue = Queue.fromArray([...json]);
+  const queue = Superqueue.fromArray([...json]);
   const parser = new JsonParser<T>(queue);
 
   await new Promise(resolve => setTimeout(resolve, 10));

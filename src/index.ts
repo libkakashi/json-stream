@@ -1,4 +1,4 @@
-import Queue from 'superqueue';
+import {Superqueue} from 'superqueue';
 
 type JSONStreamValue =
   | null
@@ -34,12 +34,12 @@ type UpdateData<T> = T | UpdaterFunction<T>;
 console.log('v2');
 
 class JsonParser<T> {
-  #queue: Queue<string>;
+  #queue: Superqueue<string>;
   #text = '';
   #index = 0;
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
-  constructor(queue: Queue<string>) {
+  constructor(queue: Superqueue<string>) {
     this.#queue = queue.pipe(r => [...r]).flat();
 
     this.#stream = (async () => {
@@ -67,7 +67,7 @@ class JsonParser<T> {
   async #peek(len = 1): Promise<string | undefined> {
     while (this.#text.length < this.#index + len) {
       const char = await this.#queue.shiftUnsafe();
-      if (char === Queue.EOF) return undefined;
+      if (char === Superqueue.EOF) return undefined;
       this.#text += char;
     }
     const result = this.#text.slice(this.#index, this.#index + len);
