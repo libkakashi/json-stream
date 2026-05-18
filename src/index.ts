@@ -35,6 +35,7 @@ class JsonParser<T> {
   #queue: Superqueue<string>;
   #text = '';
   #index = 0;
+  #offset = 0;
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
   constructor(queue: Superqueue<string>) {
@@ -46,6 +47,10 @@ class JsonParser<T> {
     })();
   }
 
+  get #pos() {
+    return this.#offset + this.#index;
+  }
+
   #isWhitespace(char: string): boolean {
     return char === ' ' || char === '\n' || char === '\t' || char === '\r';
   }
@@ -54,12 +59,17 @@ class JsonParser<T> {
     const str = await this.#peek(len);
     if (str === undefined) return undefined;
     this.#index += len;
+    if (this.#index >= 1024) {
+      this.#offset += this.#index;
+      this.#text = this.#text.slice(this.#index);
+      this.#index = 0;
+    }
     return str;
   }
 
   async #nextNonEof(len?: number, message?: string): Promise<string> {
     const chunk = await this.#next(len);
-    assert(chunk !== undefined, `Unexpected end of JSON input at index ${this.#index}: ${message}`);
+    assert(chunk !== undefined, `Unexpected end of JSON input at index ${this.#pos}: ${message}`);
     return chunk!;
   }
 
@@ -75,7 +85,7 @@ class JsonParser<T> {
 
   async #peekNonEof(len?: number, message?: string): Promise<string> {
     const chunk = await this.#peek(len);
-    assert(chunk !== undefined, `Unexpected end of JSON input at index ${this.#index}: ${message}`);
+    assert(chunk !== undefined, `Unexpected end of JSON input at index ${this.#pos}: ${message}`);
     return chunk!;
   }
 
@@ -88,8 +98,8 @@ class JsonParser<T> {
   }
 
   async #expectNext(expected: string): Promise<string> {
-    const char = await this.#nextNonEof(expected.length, `Expected '${expected}' at index ${this.#index}, got EOF.`);
-    assertEq(char, expected, `Expected '${expected}' at index ${this.#index}, got '${char}'`);
+    const char = await this.#nextNonEof(expected.length, `Expected '${expected}' at index ${this.#pos}, got EOF.`);
+    assertEq(char, expected, `Expected '${expected}' at index ${this.#pos}, got '${char}'`);
     return char;
   }
 
@@ -160,7 +170,7 @@ class JsonParser<T> {
       case '9':
         return this.parseNumber();
       default:
-        throw new Error(`Unexpected token ${next} at index ${this.#index} while parsing value in JSON`);
+        throw new Error(`Unexpected token ${next} at index ${this.#pos} while parsing value in JSON`);
     }
   }
 
@@ -301,7 +311,7 @@ class JsonParser<T> {
           const char = parseInt(await this.#nextNonEof(8), 16);
           update(str => str + String.fromCharCode(char));
         } else {
-          throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#index} in JSON`);
+          throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#pos} in JSON`);
         }
       }
       await this.#expectNext('"');
