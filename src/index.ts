@@ -8,7 +8,7 @@ export type JSONValue =
   | JSONValue[]
   | {[key: string]: JSONValue};
 
-type JSONStreamValue =
+export type JSONStreamValue =
   | null
   | number
   | boolean
@@ -21,11 +21,11 @@ export type JSONStreamResult<T extends JSONStreamValue> = {
   wait: Promise<T>;
 };
 
-interface JSONObjectStream {
+export interface JSONObjectStream {
   [key: string]: JSONStreamResult<JSONStreamValue>;
 }
 
-type JSONArrayStream = Array<JSONStreamResult<JSONStreamValue>>;
+export type JSONArrayStream = Array<JSONStreamResult<JSONStreamValue>>;
 
 const assert = (condition: boolean, message = 'Assertion failed') => {
   if (!condition) throw new Error(message);
@@ -332,6 +332,10 @@ class JsonParser<T extends JSONValue = JSONValue> {
 
   #parseNull() {
     return this.#wrapResult(null, () => this.#expectNext('null'));
+  }
+
+  get root(): Promise<JSONStreamResult<JSONStreamValue>> {
+    return this.#stream;
   }
 
   async resolve(): Promise<T> {
