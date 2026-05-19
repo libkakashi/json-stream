@@ -19,6 +19,8 @@ export type JSONStreamValue =
 export type JSONStreamResult<T extends JSONStreamValue> = {
   data: T;
   wait: Promise<T>;
+  done: boolean;
+  error?: Error;
 };
 
 export interface JSONObjectStream {
@@ -130,7 +132,18 @@ class JsonParser<T extends JSONValue = JSONValue> {
     };
     const result: JSONStreamResult<V> = {
       data: initialData,
-      wait: callback({set, mutate}).then(() => result.data),
+      done: false,
+      wait: callback({set, mutate}).then(
+        () => {
+          result.done = true;
+          return result.data;
+        },
+        (err: Error) => {
+          result.done = true;
+          result.error = err;
+          throw err;
+        },
+      ),
     };
     result.wait.catch(() => {});
     return result;
