@@ -371,18 +371,18 @@ class JsonParser<T extends JSONValue = JSONValue> {
     return this.#stream;
   }
 
-  async resolve(): Promise<T> {
-    return this.#resolve(await this.#stream) as T;
+  async snapshot(): Promise<T> {
+    return this.#snapshot(await this.#stream) as T;
   }
 
-  #resolve = (stream: JSONStreamResult<JSONStreamValue>): JSONValue => {
+  #snapshot = (stream: JSONStreamResult<JSONStreamValue>): JSONValue => {
     if (typeof stream.data !== 'object') return stream.data;
     if (stream.data === null) return null;
-    if (Array.isArray(stream.data)) return stream.data.map(this.#resolve);
+    if (Array.isArray(stream.data)) return stream.data.map(this.#snapshot);
 
     const result: {[key: string]: JSONValue} = {};
     for (const key in stream.data) {
-      result[key] = this.#resolve(stream.data[key]!);
+      result[key] = this.#snapshot(stream.data[key]!);
     }
     return result;
   };

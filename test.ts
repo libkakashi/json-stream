@@ -82,7 +82,7 @@ const parseJson = async <T>(json: string): Promise<T> => {
   const parser = new JsonParser<T>(queue);
 
   await new Promise(resolve => setTimeout(resolve, 10));
-  return await parser.resolve();
+  return await parser.snapshot();
 };
 
 // Run all tests
