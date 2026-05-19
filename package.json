@@ -35,8 +35,5 @@
     "fix": "gts fix",
     "test": "bun test"
   },
-  "type": "module",
-  "dependencies": {
-    "superqueue": "github:libkakashi/superqueue"
-  }
+  "type": "module"
 }

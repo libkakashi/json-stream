@@ -1,5 +1,3 @@
-import {Superqueue} from 'superqueue';
-
 export type JSONValue =
   | null
   | number
@@ -38,32 +36,17 @@ const assertEq = (a: unknown, b: unknown, message = 'Assertion failed') => {
 };
 
 class JsonParser<T extends JSONValue = JSONValue> {
-  #queue: Superqueue<string>;
+  #iter: AsyncIterator<string>;
   #text = '';
   #index = 0;
   #offset = 0;
+  #done = false;
   #signal?: AbortSignal;
-  #sourceError?: Error;
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
   constructor(input: AsyncIterable<string>, options: {signal?: AbortSignal} = {}) {
     this.#signal = options.signal;
-    this.#queue = new Superqueue<string>();
-
-    options.signal?.addEventListener('abort', () => this.#queue.end());
-
-    void (async () => {
-      try {
-        for await (const chunk of input) {
-          if (options.signal?.aborted) break;
-          this.#queue.push(chunk);
-        }
-      } catch (e) {
-        this.#sourceError = e as Error;
-      } finally {
-        this.#queue.end();
-      }
-    })();
+    this.#iter = input[Symbol.asyncIterator]();
 
     this.#stream = (async () => {
       await this.#skipWhiteSpaces();
@@ -98,17 +81,44 @@ class JsonParser<T extends JSONValue = JSONValue> {
     return chunk!;
   }
 
+  async #pullChunk(): Promise<string | undefined> {
+    if (this.#done) return undefined;
+    if (this.#signal?.aborted) {
+      void this.#iter.return?.();
+      throw this.#signal.reason ?? new Error('aborted');
+    }
+    const nextPromise = this.#iter.next();
+    const result = this.#signal
+      ? await new Promise<IteratorResult<string>>((resolve, reject) => {
+          const onAbort = () => {
+            void this.#iter.return?.();
+            reject(this.#signal!.reason ?? new Error('aborted'));
+          };
+          this.#signal!.addEventListener('abort', onAbort, {once: true});
+          nextPromise.then(
+            v => {
+              this.#signal!.removeEventListener('abort', onAbort);
+              resolve(v);
+            },
+            e => {
+              this.#signal!.removeEventListener('abort', onAbort);
+              reject(e);
+            },
+          );
+        })
+      : await nextPromise;
+    if (result.done) {
+      this.#done = true;
+      return undefined;
+    }
+    return result.value;
+  }
+
   async #peek(len = 1): Promise<string | undefined> {
     while (this.#text.length < this.#index + len) {
-      const char = await this.#queue.shiftUnsafe();
-      if (char === Superqueue.EOF) {
-        if (this.#signal?.aborted) {
-          throw this.#signal.reason ?? new Error('aborted');
-        }
-        if (this.#sourceError) throw this.#sourceError;
-        return undefined;
-      }
-      this.#text += char;
+      const chunk = await this.#pullChunk();
+      if (chunk === undefined) return undefined;
+      this.#text += chunk;
     }
     const result = this.#text.slice(this.#index, this.#index + len);
     return result;

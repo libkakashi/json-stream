@@ -1,4 +1,3 @@
-import {Superqueue} from 'superqueue';
 import JsonParser, {parseStream} from '../src';
 import type {
   JSONValue,
@@ -8,7 +7,9 @@ import type {
   JSONArrayStream,
 } from '../src';
 
-export const fromString = (s: string) => Superqueue.fromArray([...s]);
+export async function* fromString(s: string) {
+  for (const ch of s) yield ch;
+}
 
 export async function* chunked(s: string, perChunk = 1) {
   for (let i = 0; i < s.length; i += perChunk) yield s.slice(i, i + perChunk);

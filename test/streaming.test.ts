@@ -1,5 +1,4 @@
 import {describe, test, expect} from 'bun:test';
-import {Superqueue} from 'superqueue';
 import JsonParser, {parseStream} from '../src';
 import type {JSONStreamResult, JSONStreamValue} from '../src';
 import {chunked, fromString} from './helpers';
@@ -112,13 +111,6 @@ describe('AsyncIterable input variants', () => {
     expect(obj.a.data).toBe('\n');
   });
 
-  test('Superqueue still works as input', async () => {
-    const q = Superqueue.fromArray([...'{"a":1}']);
-    const root = await parseStream(q);
-    await root.wait;
-    const obj = root.data as Record<string, JSONStreamResult<JSONStreamValue>>;
-    expect(obj.a.data).toBe(1);
-  });
 });
 
 describe('source iterator failures', () => {
