@@ -1,12 +1,12 @@
 import {describe, test, expect} from 'bun:test';
-import JsonParser, {parseStream} from '../src';
+import JsonParser, {streamJson} from '../src';
 import {asArr, asObj, flush, makeControllable} from './helpers';
 
 describe('live string data grows in place', () => {
   test('string data grows character by character', async () => {
     const s = makeControllable();
     s.push('"');
-    const root = await parseStream(s.iterable);
+    const root = await streamJson(s.iterable).root;
 
     s.push('h');
     await flush();
@@ -26,7 +26,7 @@ describe('live string data grows in place', () => {
   test('object value string grows in place while sibling is unaffected', async () => {
     const s = makeControllable();
     s.push('{"name":"Jo');
-    const root = await parseStream(s.iterable);
+    const root = await streamJson(s.iterable).root;
     await flush();
 
     const obj = asObj(root);
@@ -51,7 +51,7 @@ describe('live array data', () => {
   test('array elements appear one at a time', async () => {
     const s = makeControllable();
     s.push('[1,');
-    const root = await parseStream(s.iterable);
+    const root = await streamJson(s.iterable).root;
     await flush();
 
     let arr = asArr(root);
@@ -75,7 +75,7 @@ describe('live array data', () => {
   test('partial element is visible before its closer', async () => {
     const s = makeControllable();
     s.push('["partial');
-    const root = await parseStream(s.iterable);
+    const root = await streamJson(s.iterable).root;
     await flush();
 
     const arr = asArr(root);
@@ -95,7 +95,7 @@ describe('done flag flips at the right moment', () => {
   test('string done flips only after closing quote', async () => {
     const s = makeControllable();
     s.push('{"a":"hello');
-    const root = await parseStream(s.iterable);
+    const root = await streamJson(s.iterable).root;
     await flush();
 
     const obj = asObj(root);
@@ -114,7 +114,7 @@ describe('done flag flips at the right moment', () => {
   test('object done flips only after closing brace', async () => {
     const s = makeControllable();
     s.push('{"a":1,"b":2');
-    const root = await parseStream(s.iterable);
+    const root = await streamJson(s.iterable).root;
     await flush();
     expect(root.done).toBe(false);
 
@@ -127,7 +127,7 @@ describe('done flag flips at the right moment', () => {
   test('inner array done flips before outer object done', async () => {
     const s = makeControllable();
     s.push('{"arr":[1,2,3]');
-    const root = await parseStream(s.iterable);
+    const root = await streamJson(s.iterable).root;
     await flush();
 
     const obj = asObj(root);
@@ -146,7 +146,7 @@ describe('error propagation', () => {
     const s = makeControllable();
     s.push('{"a":"\\uZZZZ"}');
     s.end();
-    const root = await parseStream(s.iterable);
+    const root = await streamJson(s.iterable).root;
     try {
       await root.wait;
     } catch (_) {
@@ -163,7 +163,7 @@ describe('error propagation', () => {
     const s = makeControllable();
     s.push('{"good":"value","bad":"\\uZZZZ"}');
     s.end();
-    const root = await parseStream(s.iterable);
+    const root = await streamJson(s.iterable).root;
     try {
       await root.wait;
     } catch (_) {

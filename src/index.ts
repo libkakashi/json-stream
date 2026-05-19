@@ -402,10 +402,9 @@ class JsonParser<T extends JSONValue = JSONValue> {
   };
 }
 
-export const parseStream = (
+export const streamJson = <T extends JSONValue = JSONValue>(
   input: AsyncIterable<string>,
   options?: {signal?: AbortSignal},
-): Promise<JSONStreamResult<JSONStreamValue>> =>
-  new JsonParser(input, options).root;
+): JsonParser<T> => new JsonParser<T>(input, options);
 
 export default JsonParser;

@@ -1,4 +1,4 @@
-import JsonParser, {parseStream} from '../src';
+import JsonParser, {streamJson} from '../src';
 import type {
   JSONValue,
   JSONStreamResult,
@@ -26,7 +26,7 @@ export const parseFull = async <T extends JSONValue = JSONValue>(
 
 export const parseExpectError = async (s: string): Promise<Error> => {
   try {
-    const root = await parseStream(fromString(s));
+    const root = await streamJson(fromString(s)).root;
     await root.wait;
   } catch (e) {
     return e as Error;

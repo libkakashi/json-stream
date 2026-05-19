@@ -1,18 +1,18 @@
 import {describe, test, expect} from 'bun:test';
-import JsonParser, {parseStream} from '../src';
+import JsonParser, {streamJson} from '../src';
 import type {JSONStreamResult, JSONStreamValue} from '../src';
 import {chunked, fromString} from './helpers';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-describe('parseStream factory', () => {
+describe('streamJson factory', () => {
   test('returns root immediately, before parse completes', async () => {
     async function* slow() {
       yield '{';
       await delay(50);
       yield '"a":1}';
     }
-    const root = await parseStream(slow());
+    const root = await streamJson(slow()).root;
     expect(root.done).toBe(false);
     expect(root.data).toEqual({});
     await root.wait;
@@ -27,7 +27,7 @@ describe('parseStream factory', () => {
       await delay(10);
       yield '30}';
     }
-    const root = await parseStream(gen());
+    const root = await streamJson(gen()).root;
     const obj = root.data as Record<string, JSONStreamResult<JSONStreamValue>>;
 
     // give the parser one tick to enter the object
@@ -42,7 +42,7 @@ describe('parseStream factory', () => {
 
 describe('JSONStreamResult.done', () => {
   test('starts false, flips to true on success', async () => {
-    const root = await parseStream(fromString('{"a":1}'));
+    const root = await streamJson(fromString('{"a":1}')).root;
     expect(root.done).toBe(false);
     await root.wait;
     expect(root.done).toBe(true);
@@ -50,7 +50,7 @@ describe('JSONStreamResult.done', () => {
   });
 
   test('flips to true on error and exposes the error', async () => {
-    const root = await parseStream(fromString('{"a":"\\uZZZZ"}'));
+    const root = await streamJson(fromString('{"a":"\\uZZZZ"}')).root;
     try {
       await root.wait;
     } catch (_) {
@@ -62,7 +62,7 @@ describe('JSONStreamResult.done', () => {
   });
 
   test('inner nodes also get done flags', async () => {
-    const root = await parseStream(fromString('{"a":"hello"}'));
+    const root = await streamJson(fromString('{"a":"hello"}')).root;
     await root.wait;
     const obj = root.data as Record<string, JSONStreamResult<JSONStreamValue>>;
     expect(obj.a.done).toBe(true);
@@ -71,11 +71,11 @@ describe('JSONStreamResult.done', () => {
 
 describe('AsyncIterable input variants', () => {
   test('async generator yielding char-by-char', async () => {
-    const root = await parseStream(chunked('{"a":1,"b":2}', 1));
+    const root = await streamJson(chunked('{"a":1,"b":2}', 1)).root;
     await root.wait;
     expect(new JsonParser(fromString('{"a":1,"b":2}'))).toBeDefined();
     // verify via a fresh parse with the same string
-    const root2 = await parseStream(fromString('{"a":1,"b":2}'));
+    const root2 = await streamJson(fromString('{"a":1,"b":2}')).root;
     await root2.wait;
     const obj = root2.data as Record<string, JSONStreamResult<JSONStreamValue>>;
     expect(obj.a.data).toBe(1);
@@ -83,7 +83,7 @@ describe('AsyncIterable input variants', () => {
   });
 
   test('async generator yielding multi-char chunks', async () => {
-    const root = await parseStream(chunked('{"hello":"world"}', 4));
+    const root = await streamJson(chunked('{"hello":"world"}', 4)).root;
     await root.wait;
     const obj = root.data as Record<string, JSONStreamResult<JSONStreamValue>>;
     expect(obj.hello.data).toBe('world');
@@ -94,7 +94,7 @@ describe('AsyncIterable input variants', () => {
       yield '{"a":"he';
       yield 'llo"}';
     }
-    const root = await parseStream(split());
+    const root = await streamJson(split()).root;
     await root.wait;
     const obj = root.data as Record<string, JSONStreamResult<JSONStreamValue>>;
     expect(obj.a.data).toBe('hello');
@@ -105,7 +105,7 @@ describe('AsyncIterable input variants', () => {
       yield '{"a":"\\';
       yield 'n"}';
     }
-    const root = await parseStream(split());
+    const root = await streamJson(split()).root;
     await root.wait;
     const obj = root.data as Record<string, JSONStreamResult<JSONStreamValue>>;
     expect(obj.a.data).toBe('\n');
@@ -119,7 +119,7 @@ describe('source iterator failures', () => {
       yield '{"a":';
       throw new Error('network error');
     }
-    const root = await parseStream(fails());
+    const root = await streamJson(fails()).root;
     await expect(root.wait).rejects.toThrow(/network error/);
     expect(root.error?.message).toMatch(/network error/);
   });
@@ -129,7 +129,7 @@ describe('source iterator failures', () => {
       throw new Error('immediate failure');
       yield ''; // unreachable, but generator needs to be one
     }
-    await expect(parseStream(fails())).rejects.toThrow(/immediate failure/);
+    await expect(streamJson(fails()).root).rejects.toThrow(/immediate failure/);
   });
 });
 

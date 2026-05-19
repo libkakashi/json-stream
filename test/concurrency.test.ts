@@ -1,17 +1,17 @@
 import {describe, test, expect} from 'bun:test';
-import JsonParser, {parseStream} from '../src';
+import JsonParser, {streamJson} from '../src';
 import {fromString, makeControllable, flush} from './helpers';
 
 describe('multiple consumers', () => {
   test('multiple awaiters of root.wait all resolve', async () => {
-    const root = await parseStream(fromString('{"a":1}'));
+    const root = await streamJson(fromString('{"a":1}')).root;
     const [a, b, c] = await Promise.all([root.wait, root.wait, root.wait]);
     expect(a).toBe(b);
     expect(b).toBe(c);
   });
 
   test('multiple awaiters all see the same rejection', async () => {
-    const root = await parseStream(fromString('"\\uZZZZ"'));
+    const root = await streamJson(fromString('"\\uZZZZ"')).root;
     const errors = await Promise.allSettled([root.wait, root.wait, root.wait]);
     expect(errors.every(e => e.status === 'rejected')).toBe(true);
     const messages = errors.map(e =>
@@ -57,14 +57,14 @@ describe('multiple consumers', () => {
 describe('parser reuse and isolation', () => {
   test('two parsers in parallel do not interfere', async () => {
     const [a, b] = await Promise.all([
-      parseStream(fromString('{"a":1}')).then(r => r.wait.then(() => r.data)),
-      parseStream(fromString('[10,20,30]')).then(r => r.wait.then(() => r.data)),
+      streamJson(fromString('{"a":1}')).root.then(r => r.wait.then(() => r.data)),
+      streamJson(fromString('[10,20,30]')).root.then(r => r.wait.then(() => r.data)),
     ]);
     expect(JSON.stringify(a)).not.toBe(JSON.stringify(b));
   });
 
   test('root.wait resolves to the same root.data', async () => {
-    const root = await parseStream(fromString('{"x":42}'));
+    const root = await streamJson(fromString('{"x":42}')).root;
     const waitedData = await root.wait;
     expect(waitedData).toBe(root.data);
   });

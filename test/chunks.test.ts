@@ -1,9 +1,9 @@
 import {describe, test, expect} from 'bun:test';
-import JsonParser, {parseStream} from '../src';
+import JsonParser, {streamJson} from '../src';
 import {chunked, parseFull} from './helpers';
 
 const collect = async (input: AsyncIterable<string>) => {
-  const root = await parseStream(input);
+  const root = await streamJson(input).root;
   await root.wait;
   return root;
 };

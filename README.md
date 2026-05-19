@@ -17,12 +17,13 @@ yarn add github:libkakashi/json-stream
 ## Quick start
 
 ```ts
-import {parseStream} from 'json-stream';
+import {streamJson} from 'json-stream';
 
 const res = await fetch('https://example.com/streaming-json');
 const stream = res.body!.pipeThrough(new TextDecoderStream());
 
-const root = await parseStream(stream);
+const parser = streamJson(stream);
+const root = await parser.root;
 
 // root.data is the live tree — values appear and grow as parsing proceeds
 console.log(root.data); // {} or partial right now
@@ -32,14 +33,14 @@ await root.wait;
 console.log(root.data); // {name: "Ada", description: "…"}
 ```
 
-`parseStream` returns the root `JSONStreamResult` immediately — `.data` mutates in place as chunks arrive, `.wait` resolves on completion, `.done` flips to `true`, and `.error` is populated if anything fails.
+`streamJson(input)` returns a `JsonParser` synchronously. From it you can grab `.root` (a promise to the root `JSONStreamResult`) or call `.snapshot()` to get a plain-JS copy of the current state. On the root node, `.data` mutates in place as chunks arrive, `.wait` resolves on completion, `.done` flips to `true`, and `.error` is populated if anything fails.
 
 ## Walking the live tree
 
 The tree is built out of `JSONStreamResult` nodes. Each node has `data`/`wait`/`done`/`error`. Strings, numbers, booleans, and nulls land in `data` directly; arrays hold `JSONStreamResult` children, and objects map keys to `JSONStreamResult` children.
 
 ```ts
-const root = await parseStream(stream);
+const root = await streamJson(stream).root;
 
 // Watch a specific field grow:
 const obj = root.data as Record<string, JSONStreamResult<JSONStreamValue>>;
@@ -52,12 +53,10 @@ const interval = setInterval(() => {
 
 ## Snapshots (deep copy)
 
-For consumers that want a plain JS object at a point in time, use the `JsonParser` class directly:
+For consumers that want a plain JS object at a point in time, use `snapshot()` on the parser:
 
 ```ts
-import JsonParser from 'json-stream';
-
-const parser = new JsonParser<{name?: string; age?: number}>(stream);
+const parser = streamJson<{name?: string; age?: number}>(stream);
 
 // poll over time:
 setInterval(async () => {
@@ -74,7 +73,7 @@ Pass an `AbortSignal` to stop parsing on disconnect or unmount:
 
 ```ts
 const ac = new AbortController();
-const root = await parseStream(stream, {signal: ac.signal});
+const root = await streamJson(stream, {signal: ac.signal}).root;
 
 // later, e.g. on user navigation:
 ac.abort();
@@ -95,16 +94,28 @@ It still throws on outright malformed input (unknown escape sequences, garbage t
 
 ## API
 
-### `parseStream(input, options?) → Promise<JSONStreamResult>`
+### `streamJson(input, options?) → JsonParser`
 
 ```ts
-parseStream(
+streamJson<T extends JSONValue = JSONValue>(
   input: AsyncIterable<string>,
   options?: {signal?: AbortSignal},
-): Promise<JSONStreamResult<JSONStreamValue>>
+): JsonParser<T>
 ```
 
-The primary entry point. Returns the root node as soon as the first character is peeked.
+The primary entry point. Returns a parser instance synchronously. Equivalent to `new JsonParser(input, options)` without the `new`.
+
+### `JsonParser`
+
+```ts
+class JsonParser<T extends JSONValue = JSONValue> {
+  get root: Promise<JSONStreamResult<JSONStreamValue>>;
+  snapshot(): Promise<T>;
+}
+```
+
+- `.root` — resolves to the root `JSONStreamResult` as soon as the first character is peeked.
+- `.snapshot()` — deep-copied plain JS value of the current state. Does not wait for the parse to finish.
 
 ### `JSONStreamResult<T>`
 
@@ -115,16 +126,6 @@ type JSONStreamResult<T> = {
   done: boolean;      // true once wait has settled
   error?: Error;      // populated on rejection
 };
-```
-
-### `new JsonParser(input, options?)`
-
-The underlying class. Use it if you want the `snapshot()` convenience:
-
-```ts
-const parser = new JsonParser<MyShape>(input, {signal});
-parser.root;            // same as parseStream(input)
-await parser.snapshot();// deep-copied plain JS value of current state
 ```
 
 ### Input
@@ -141,5 +142,5 @@ async function* chunks() {
   yield '{"a":';
   yield '1}';
 }
-const root = await parseStream(chunks());
+const root = await streamJson(chunks()).root;
 ```

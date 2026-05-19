@@ -1,5 +1,5 @@
 import {describe, test, expect} from 'bun:test';
-import {parseStream} from '../src';
+import {streamJson} from '../src';
 import {fromString} from './helpers';
 
 const delay = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -13,7 +13,7 @@ describe('AbortSignal', () => {
     }
 
     const ac = new AbortController();
-    const root = await parseStream(slow(), {signal: ac.signal});
+    const root = await streamJson(slow(), {signal: ac.signal}).root;
 
     const reason = new Error('user-cancelled');
     setTimeout(() => ac.abort(reason), 10);
@@ -31,7 +31,7 @@ describe('AbortSignal', () => {
     }
 
     const ac = new AbortController();
-    const root = await parseStream(slow(), {signal: ac.signal});
+    const root = await streamJson(slow(), {signal: ac.signal}).root;
 
     setTimeout(() => ac.abort(), 10);
 
@@ -39,18 +39,18 @@ describe('AbortSignal', () => {
     expect(root.done).toBe(true);
   });
 
-  test('signal aborted before construction rejects parseStream itself', async () => {
+  test('signal aborted before construction rejects .root', async () => {
     const ac = new AbortController();
     ac.abort(new Error('pre-aborted'));
 
     await expect(
-      parseStream(fromString('{"a":1}'), {signal: ac.signal}),
+      streamJson(fromString('{"a":1}'), {signal: ac.signal}).root,
     ).rejects.toThrow(/pre-aborted/);
   });
 
   test('completed parse is unaffected by later abort', async () => {
     const ac = new AbortController();
-    const root = await parseStream(fromString('{"a":1}'), {signal: ac.signal});
+    const root = await streamJson(fromString('{"a":1}'), {signal: ac.signal}).root;
     await root.wait;
 
     ac.abort();
@@ -66,7 +66,7 @@ describe('AbortSignal', () => {
     }
 
     const ac = new AbortController();
-    const root = await parseStream(slow(), {signal: ac.signal});
+    const root = await streamJson(slow(), {signal: ac.signal}).root;
 
     setTimeout(() => ac.abort(new Error('mid-nest')), 10);
     await expect(root.wait).rejects.toThrow(/mid-nest/);
@@ -81,7 +81,7 @@ describe('AbortSignal', () => {
     }
 
     const ac = new AbortController();
-    const root = await parseStream(slow(), {signal: ac.signal});
+    const root = await streamJson(slow(), {signal: ac.signal}).root;
 
     setTimeout(() => {
       ac.abort(new Error('first'));
