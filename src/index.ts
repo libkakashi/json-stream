@@ -44,8 +44,15 @@ class JsonParser<T extends JSONValue = JSONValue> {
   #offset = 0;
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
-  constructor(queue: Superqueue<string>) {
-    this.#queue = queue.pipe(r => [...r]).flat();
+  constructor(input: AsyncIterable<string>) {
+    this.#queue = new Superqueue<string>();
+    void (async () => {
+      try {
+        for await (const chunk of input) this.#queue.push(chunk);
+      } finally {
+        this.#queue.end();
+      }
+    })();
 
     this.#stream = (async () => {
       await this.#skipWhiteSpaces();
