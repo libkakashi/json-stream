@@ -81,6 +81,45 @@ describe('invalid numbers', () => {
   });
 });
 
+describe('magnitudes', () => {
+  test('Number.MAX_SAFE_INTEGER', async () => {
+    expect(await parseFull(String(Number.MAX_SAFE_INTEGER))).toBe(
+      Number.MAX_SAFE_INTEGER,
+    );
+  });
+
+  test('Number.MIN_SAFE_INTEGER', async () => {
+    expect(await parseFull(String(Number.MIN_SAFE_INTEGER))).toBe(
+      Number.MIN_SAFE_INTEGER,
+    );
+  });
+
+  test('very small positive (1e-100)', async () => {
+    expect(await parseFull('1e-100')).toBe(1e-100);
+  });
+
+  test('very large (1e100)', async () => {
+    expect(await parseFull('1e100')).toBe(1e100);
+  });
+
+  test('negative zero parses to 0 (Number normalizes the sign)', async () => {
+    expect(await parseFull('-0')).toBe(-0);
+  });
+});
+
+describe('incomplete exponents (lenient)', () => {
+  test('"1e" alone consumes everything and yields NaN', async () => {
+    // The parser is lenient: it consumes "1e" then has nothing more, so
+    // Number("1e") = NaN. This is intentional — we record the AI's
+    // intent (a number) rather than throwing.
+    expect(Number.isNaN(await parseFull('1e'))).toBe(true);
+  });
+
+  test('"1e+" alone yields NaN', async () => {
+    expect(Number.isNaN(await parseFull('1e+'))).toBe(true);
+  });
+});
+
 describe('numbers inside collections', () => {
   test('array of mixed numeric types', async () => {
     expect(await parseFull('[1,-2,3.14,1e2,-1.5e-3]')).toEqual([

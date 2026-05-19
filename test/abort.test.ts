@@ -57,4 +57,59 @@ describe('AbortSignal', () => {
     expect(root.done).toBe(true);
     expect(root.error).toBeUndefined();
   });
+
+  test('abort during deeply nested parse propagates to root', async () => {
+    async function* slow() {
+      yield '{"a":{"b":{"c":[1,2,';
+      await delay(100);
+      yield '3]}}}';
+    }
+
+    const ac = new AbortController();
+    const root = await parseStream(slow(), {signal: ac.signal});
+
+    setTimeout(() => ac.abort(new Error('mid-nest')), 10);
+    await expect(root.wait).rejects.toThrow(/mid-nest/);
+    expect(root.done).toBe(true);
+  });
+
+  test('multiple aborts are idempotent', async () => {
+    async function* slow() {
+      yield '{"a":';
+      await delay(100);
+      yield '1}';
+    }
+
+    const ac = new AbortController();
+    const root = await parseStream(slow(), {signal: ac.signal});
+
+    setTimeout(() => {
+      ac.abort(new Error('first'));
+      ac.abort(new Error('second'));
+    }, 10);
+
+    await expect(root.wait).rejects.toThrow(/first/);
+  });
+
+  test('partial data is preserved on abort', async () => {
+    const {default: JsonParser} = await import('../src');
+    async function* slow() {
+      yield '{"good":"value","x":';
+      await delay(100);
+      yield '1}';
+    }
+
+    const ac = new AbortController();
+    const parser = new JsonParser(slow(), {signal: ac.signal});
+    const root = await parser.root;
+
+    setTimeout(() => ac.abort(new Error('user-cancel')), 30);
+    try {
+      await root.wait;
+    } catch (_) {
+      // expected
+    }
+    const snap = await parser.snapshot();
+    expect((snap as {good?: string}).good).toBe('value');
+  });
 });
