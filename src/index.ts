@@ -43,6 +43,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
   #index = 0;
   #offset = 0;
   #signal?: AbortSignal;
+  #sourceError?: Error;
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
   constructor(input: AsyncIterable<string>, options: {signal?: AbortSignal} = {}) {
@@ -57,6 +58,8 @@ class JsonParser<T extends JSONValue = JSONValue> {
           if (options.signal?.aborted) break;
           this.#queue.push(chunk);
         }
+      } catch (e) {
+        this.#sourceError = e as Error;
       } finally {
         this.#queue.end();
       }
@@ -102,6 +105,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
         if (this.#signal?.aborted) {
           throw this.#signal.reason ?? new Error('aborted');
         }
+        if (this.#sourceError) throw this.#sourceError;
         return undefined;
       }
       this.#text += char;

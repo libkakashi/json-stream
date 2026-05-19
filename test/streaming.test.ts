@@ -121,6 +121,26 @@ describe('AsyncIterable input variants', () => {
   });
 });
 
+describe('source iterator failures', () => {
+  test('error thrown by source iterator propagates to root.wait', async () => {
+    async function* fails() {
+      yield '{"a":';
+      throw new Error('network error');
+    }
+    const root = await parseStream(fails());
+    await expect(root.wait).rejects.toThrow(/network error/);
+    expect(root.error?.message).toMatch(/network error/);
+  });
+
+  test('error before any chunk propagates', async () => {
+    async function* fails() {
+      throw new Error('immediate failure');
+      yield ''; // unreachable, but generator needs to be one
+    }
+    await expect(parseStream(fails())).rejects.toThrow(/immediate failure/);
+  });
+});
+
 describe('snapshot()', () => {
   test('returns plain JS value matching live tree', async () => {
     const parser = new JsonParser(fromString('{"a":1,"b":[2,3]}'));
