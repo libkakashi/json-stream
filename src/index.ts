@@ -173,7 +173,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
     return this.#wrapResult<JSONObjectStream>({}, async ({mutate}) => {
       await this.#expectNext('{');
 
-      do {
+      while (true) {
         await this.#skipWhiteSpaces();
         if (await this.#peekNonEof() === '}') break;
 
@@ -193,7 +193,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
         if (await this.#peekNonEof() === '}') break;
 
         await this.#expectNext(',');
-      } while (true);
+      }
 
       await this.#expectNext('}');
     });
@@ -203,7 +203,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
     return this.#wrapResult<JSONArrayStream>([], async ({mutate}) => {
       await this.#expectNext('[');
 
-      do {
+      while (true) {
         await this.#skipWhiteSpaces();
         if (await this.#peekNonEof() === ']') break;
 
@@ -216,7 +216,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
         if (await this.#peekNonEof() === ']') break;
 
         await this.#expectNext(',');
-      } while (true);
+      }
 
       await this.#expectNext(']');
     });
