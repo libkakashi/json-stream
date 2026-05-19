@@ -42,13 +42,21 @@ class JsonParser<T extends JSONValue = JSONValue> {
   #text = '';
   #index = 0;
   #offset = 0;
+  #signal?: AbortSignal;
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
-  constructor(input: AsyncIterable<string>) {
+  constructor(input: AsyncIterable<string>, options: {signal?: AbortSignal} = {}) {
+    this.#signal = options.signal;
     this.#queue = new Superqueue<string>();
+
+    options.signal?.addEventListener('abort', () => this.#queue.end());
+
     void (async () => {
       try {
-        for await (const chunk of input) this.#queue.push(chunk);
+        for await (const chunk of input) {
+          if (options.signal?.aborted) break;
+          this.#queue.push(chunk);
+        }
       } finally {
         this.#queue.end();
       }
@@ -90,7 +98,12 @@ class JsonParser<T extends JSONValue = JSONValue> {
   async #peek(len = 1): Promise<string | undefined> {
     while (this.#text.length < this.#index + len) {
       const char = await this.#queue.shiftUnsafe();
-      if (char === Superqueue.EOF) return undefined;
+      if (char === Superqueue.EOF) {
+        if (this.#signal?.aborted) {
+          throw this.#signal.reason ?? new Error('aborted');
+        }
+        return undefined;
+      }
       this.#text += char;
     }
     const result = this.#text.slice(this.#index, this.#index + len);
