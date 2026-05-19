@@ -1,5 +1,13 @@
 import {Superqueue} from 'superqueue';
 
+export type JSONValue =
+  | null
+  | number
+  | boolean
+  | string
+  | JSONValue[]
+  | {[key: string]: JSONValue};
+
 type JSONStreamValue =
   | null
   | number
@@ -27,7 +35,7 @@ const assertEq = (a: unknown, b: unknown, message = 'Assertion failed') => {
   if (a !== b) throw new Error(`${message}: '${a}' !== '${b}'`);
 };
 
-class JsonParser<T> {
+class JsonParser<T extends JSONValue = JSONValue> {
   #queue: Superqueue<string>;
   #text = '';
   #index = 0;
@@ -327,28 +335,19 @@ class JsonParser<T> {
   }
 
   async resolve(): Promise<T> {
-    return this.#resolve(await this.#stream);
+    return this.#resolve(await this.#stream) as T;
   }
 
-  #resolve = (stream: JSONStreamResult<JSONStreamValue>): T => {
-    switch (typeof stream.data) {
-      case 'object':
-        if (Array.isArray(stream.data)) {
-          return stream.data.map(this.#resolve) as T extends Array<unknown>
-            ? T
-            : never;
-        } else if (stream.data === null) {
-          return null as T;
-        } else {
-          const result: Record<string, unknown> = {};
-          for (const key in stream.data) {
-            result[key] = this.#resolve(stream.data[key]!);
-          }
-          return result as T;
-        }
-      default:
-        return stream.data as T extends number | string | boolean ? T : never;
+  #resolve = (stream: JSONStreamResult<JSONStreamValue>): JSONValue => {
+    if (typeof stream.data !== 'object') return stream.data;
+    if (stream.data === null) return null;
+    if (Array.isArray(stream.data)) return stream.data.map(this.#resolve);
+
+    const result: {[key: string]: JSONValue} = {};
+    for (const key in stream.data) {
+      result[key] = this.#resolve(stream.data[key]!);
     }
+    return result;
   };
 }
 
