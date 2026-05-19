@@ -298,12 +298,16 @@ class JsonParser<T> {
           set(str => str + escapeSequences[nextChar]);
           continue;
         }
-        if (nextChar === 'u') {
-          const char = parseInt(await this.#nextNonEof(4), 16);
-          set(str => str + String.fromCharCode(char));
-        } else if (nextChar === 'U') {
-          const char = parseInt(await this.#nextNonEof(8), 16);
-          set(str => str + String.fromCodePoint(char));
+        if (nextChar === 'u' || nextChar === 'U') {
+          const width = nextChar === 'u' ? 4 : 8;
+          const hex = await this.#nextNonEof(width);
+          if (!/^[0-9a-fA-F]+$/.test(hex)) {
+            throw new Error(
+              `Invalid hex in \\${nextChar} escape at index ${this.#pos}: '${hex}'`,
+            );
+          }
+          const codePoint = parseInt(hex, 16);
+          set(str => str + String.fromCodePoint(codePoint));
         } else {
           throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#pos} in JSON`);
         }
