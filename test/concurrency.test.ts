@@ -34,7 +34,9 @@ describe('multiple consumers', () => {
 
     s.push('2}');
     s.end();
-    await (await parser.root).wait;
+    await (
+      await parser.root
+    ).wait;
     const snap3 = await parser.snapshot();
 
     expect(snap1).toEqual({});
@@ -45,8 +47,10 @@ describe('multiple consumers', () => {
   test('snapshot after error returns whatever was parsed', async () => {
     const parser = new JsonParser(fromString('{"a":1,"b":"\\uZZZZ"}'));
     try {
-      await (await parser.root).wait;
-    } catch (_) {
+      await (
+        await parser.root
+      ).wait;
+    } catch {
       // expected
     }
     const snap = await parser.snapshot();
@@ -57,8 +61,12 @@ describe('multiple consumers', () => {
 describe('parser reuse and isolation', () => {
   test('two parsers in parallel do not interfere', async () => {
     const [a, b] = await Promise.all([
-      streamJson(fromString('{"a":1}')).root.then(r => r.wait.then(() => r.data)),
-      streamJson(fromString('[10,20,30]')).root.then(r => r.wait.then(() => r.data)),
+      streamJson(fromString('{"a":1}')).root.then(r =>
+        r.wait.then(() => r.data),
+      ),
+      streamJson(fromString('[10,20,30]')).root.then(r =>
+        r.wait.then(() => r.data),
+      ),
     ]);
     expect(JSON.stringify(a)).not.toBe(JSON.stringify(b));
   });

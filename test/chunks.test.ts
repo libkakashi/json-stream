@@ -10,7 +10,9 @@ const collect = async (input: AsyncIterable<string>) => {
 
 const collectSnap = async (input: AsyncIterable<string>) => {
   const parser = new JsonParser(input);
-  await (await parser.root).wait;
+  await (
+    await parser.root
+  ).wait;
   return parser.snapshot();
 };
 

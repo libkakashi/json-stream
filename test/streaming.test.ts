@@ -35,7 +35,7 @@ describe('streamJson factory', () => {
     expect('name' in obj || obj.name === undefined).toBe(true);
 
     await root.wait;
-    expect((obj.name.data as string)).toBe('John');
+    expect(obj.name.data as string).toBe('John');
     expect(obj.age.data).toBe(30);
   });
 });
@@ -53,7 +53,7 @@ describe('JSONStreamResult.done', () => {
     const root = await streamJson(fromString('{"a":"\\uZZZZ"}')).root;
     try {
       await root.wait;
-    } catch (_) {
+    } catch {
       // expected
     }
     expect(root.done).toBe(true);
@@ -110,7 +110,6 @@ describe('AsyncIterable input variants', () => {
     const obj = root.data as Record<string, JSONStreamResult<JSONStreamValue>>;
     expect(obj.a.data).toBe('\n');
   });
-
 });
 
 describe('source iterator failures', () => {
@@ -136,20 +135,26 @@ describe('source iterator failures', () => {
 describe('snapshot()', () => {
   test('returns plain JS value matching live tree', async () => {
     const parser = new JsonParser(fromString('{"a":1,"b":[2,3]}'));
-    await (await parser.root).wait;
+    await (
+      await parser.root
+    ).wait;
     expect(await parser.snapshot()).toEqual({a: 1, b: [2, 3]});
   });
 
   test('typed snapshot via generic', async () => {
     const parser = new JsonParser<{a: number}>(fromString('{"a":42}'));
-    await (await parser.root).wait;
+    await (
+      await parser.root
+    ).wait;
     const s = await parser.snapshot();
     expect(s.a).toBe(42);
   });
 
   test('snapshot is a copy, not the live tree', async () => {
     const parser = new JsonParser(fromString('{"a":[1,2]}'));
-    await (await parser.root).wait;
+    await (
+      await parser.root
+    ).wait;
     const snap = await parser.snapshot();
     expect(Array.isArray((snap as {a: unknown[]}).a)).toBe(true);
     // mutating snapshot doesn't affect live tree

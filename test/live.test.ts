@@ -149,7 +149,7 @@ describe('error propagation', () => {
     const root = await streamJson(s.iterable).root;
     try {
       await root.wait;
-    } catch (_) {
+    } catch {
       // expected
     }
     expect(root.done).toBe(true);
@@ -166,7 +166,7 @@ describe('error propagation', () => {
     const root = await streamJson(s.iterable).root;
     try {
       await root.wait;
-    } catch (_) {
+    } catch {
       // expected
     }
     const obj = asObj(root);
@@ -188,7 +188,9 @@ describe('snapshot during stream', () => {
 
     s.push('tial"}');
     s.end();
-    await (await parser.root).wait;
+    await (
+      await parser.root
+    ).wait;
     const snap2 = await parser.snapshot();
     expect(snap2).toEqual({a: 1, b: 'partial'});
   });
@@ -202,7 +204,9 @@ describe('snapshot during stream', () => {
 
     s.push(',3]}');
     s.end();
-    await (await parser.root).wait;
+    await (
+      await parser.root
+    ).wait;
     const snap2 = await parser.snapshot();
 
     expect((snap1 as {arr: number[]}).arr).toEqual([1, 2]);

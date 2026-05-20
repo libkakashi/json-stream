@@ -123,11 +123,7 @@ describe('incomplete exponents (lenient)', () => {
 describe('numbers inside collections', () => {
   test('array of mixed numeric types', async () => {
     expect(await parseFull('[1,-2,3.14,1e2,-1.5e-3]')).toEqual([
-      1,
-      -2,
-      3.14,
-      100,
-      -0.0015,
+      1, -2, 3.14, 100, -0.0015,
     ]);
   });
 

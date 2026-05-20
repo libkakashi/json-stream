@@ -50,7 +50,8 @@ describe('AbortSignal', () => {
 
   test('completed parse is unaffected by later abort', async () => {
     const ac = new AbortController();
-    const root = await streamJson(fromString('{"a":1}'), {signal: ac.signal}).root;
+    const root = await streamJson(fromString('{"a":1}'), {signal: ac.signal})
+      .root;
     await root.wait;
 
     ac.abort();
@@ -106,7 +107,7 @@ describe('AbortSignal', () => {
     setTimeout(() => ac.abort(new Error('user-cancel')), 30);
     try {
       await root.wait;
-    } catch (_) {
+    } catch {
       // expected
     }
     const snap = await parser.snapshot();

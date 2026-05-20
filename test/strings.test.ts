@@ -33,7 +33,9 @@ describe('escape sequences', () => {
   });
 
   test('combined escapes inside object value', async () => {
-    expect(await parseFull('{"message":"Hello\\nWorld\\t\\"Testing\\""}')).toEqual({
+    expect(
+      await parseFull('{"message":"Hello\\nWorld\\t\\"Testing\\""}'),
+    ).toEqual({
       message: 'Hello\nWorld\t"Testing"',
     });
   });

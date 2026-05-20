@@ -44,13 +44,16 @@ class JsonParser<T extends JSONValue = JSONValue> {
   #signal?: AbortSignal;
   #stream: Promise<JSONStreamResult<JSONStreamValue>>;
 
-  constructor(input: AsyncIterable<string>, options: {signal?: AbortSignal} = {}) {
+  constructor(
+    input: AsyncIterable<string>,
+    options: {signal?: AbortSignal} = {},
+  ) {
     this.#signal = options.signal;
     this.#iter = input[Symbol.asyncIterator]();
 
     this.#stream = (async () => {
       await this.#skipWhiteSpaces();
-      return await this.#parseValue()
+      return await this.#parseValue();
     })();
     this.#stream.catch(() => {});
   }
@@ -77,7 +80,10 @@ class JsonParser<T extends JSONValue = JSONValue> {
 
   async #nextNonEof(len?: number, message?: string): Promise<string> {
     const chunk = await this.#next(len);
-    assert(chunk !== undefined, `Unexpected end of JSON input at index ${this.#pos}: ${message}`);
+    assert(
+      chunk !== undefined,
+      `Unexpected end of JSON input at index ${this.#pos}: ${message}`,
+    );
     return chunk!;
   }
 
@@ -126,21 +132,29 @@ class JsonParser<T extends JSONValue = JSONValue> {
 
   async #peekNonEof(len?: number, message?: string): Promise<string> {
     const chunk = await this.#peek(len);
-    assert(chunk !== undefined, `Unexpected end of JSON input at index ${this.#pos}: ${message}`);
+    assert(
+      chunk !== undefined,
+      `Unexpected end of JSON input at index ${this.#pos}: ${message}`,
+    );
     return chunk!;
   }
 
   async #skipWhiteSpaces() {
-    while (
-      this.#isWhitespace(await this.#peekNonEof())
-    ) {
+    while (this.#isWhitespace(await this.#peekNonEof())) {
       await this.#nextNonEof();
     }
   }
 
   async #expectNext(expected: string): Promise<string> {
-    const char = await this.#nextNonEof(expected.length, `Expected '${expected}' at index ${this.#pos}, got EOF.`);
-    assertEq(char, expected, `Expected '${expected}' at index ${this.#pos}, got '${char}'`);
+    const char = await this.#nextNonEof(
+      expected.length,
+      `Expected '${expected}' at index ${this.#pos}, got EOF.`,
+    );
+    assertEq(
+      char,
+      expected,
+      `Expected '${expected}' at index ${this.#pos}, got '${char}'`,
+    );
     return char;
   }
 
@@ -212,7 +226,9 @@ class JsonParser<T extends JSONValue = JSONValue> {
       case '9':
         return this.#parseNumber();
       default:
-        throw new Error(`Unexpected token ${next} at index ${this.#pos} while parsing value in JSON`);
+        throw new Error(
+          `Unexpected token ${next} at index ${this.#pos} while parsing value in JSON`,
+        );
     }
   }
 
@@ -222,7 +238,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
 
       while (true) {
         await this.#skipWhiteSpaces();
-        if (await this.#peekNonEof() === '}') break;
+        if ((await this.#peekNonEof()) === '}') break;
 
         const key = await this.#parseKey();
         await key.wait;
@@ -237,7 +253,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
         await val.wait;
 
         await this.#skipWhiteSpaces();
-        if (await this.#peekNonEof() === '}') break;
+        if ((await this.#peekNonEof()) === '}') break;
 
         await this.#expectNext(',');
       }
@@ -252,7 +268,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
 
       while (true) {
         await this.#skipWhiteSpaces();
-        if (await this.#peekNonEof() === ']') break;
+        if ((await this.#peekNonEof()) === ']') break;
 
         const val = await this.#parseValue();
         mutate(data => void data.push(val));
@@ -260,7 +276,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
         await val.wait;
 
         await this.#skipWhiteSpaces();
-        if (await this.#peekNonEof() === ']') break;
+        if ((await this.#peekNonEof()) === ']') break;
 
         await this.#expectNext(',');
       }
@@ -330,7 +346,7 @@ class JsonParser<T extends JSONValue = JSONValue> {
       await this.#expectNext('"');
       await this.#peekNonEof();
 
-      while (await this.#peekNonEof() !== '"') {
+      while ((await this.#peekNonEof()) !== '"') {
         const char = await this.#nextNonEof();
 
         if (char !== '\\') {
@@ -364,7 +380,9 @@ class JsonParser<T extends JSONValue = JSONValue> {
           const codePoint = parseInt(hex, 16);
           set(str => str + String.fromCodePoint(codePoint));
         } else {
-          throw new Error(`Invalid escape sequence ${nextChar} at index ${this.#pos} in JSON`);
+          throw new Error(
+            `Invalid escape sequence ${nextChar} at index ${this.#pos} in JSON`,
+          );
         }
       }
       await this.#expectNext('"');
